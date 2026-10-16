@@ -1,0 +1,1 @@
+# AI Disclosure — ScoutSpeak
