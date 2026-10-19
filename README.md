@@ -74,6 +74,38 @@ This branch also contains a deployable **persistent Supabase-backed counter** at
 4. Open http://localhost:3000 or http://localhost:3000/count.
 
 
+## App shell
+
+The root layout includes a top navigation bar with links to:
+
+- `/` — Dashboard placeholder
+- `/leads` — Leads placeholder
+- `/sessions` — Sessions placeholder
+- `/count` — Persistent Supabase counter
+
+A development-only page at `/dev/ai` calls the temporary `/api/ai/ping` route and shows the validated AI response.
+
+## AI provider adapter
+
+The server-only adapter lives in `src/lib/ai/`:
+
+- `types.ts` — `ModelClient` interface (`generateJSON`, `generateText`).
+- `errors.ts` — `AiError` with typed codes.
+- `openai-compatible.ts` — fetch-based OpenAI-compatible client with timeout, rate-limit mapping, JSON repair, and Zod validation.
+- `index.ts` — `getModelClient()` factory reading server-side env vars.
+
+Configure it with:
+
+```bash
+AI_BASE_URL=https://api.openai.com/v1
+AI_API_KEY=sk-...
+AI_MODEL=gpt-4o-mini
+AI_TIMEOUT_MS=20000
+AI_PING_ENABLED=false
+```
+
+The temporary route `POST /api/ai/ping` returns `404` unless `AI_PING_ENABLED=true`. Set it to `true` only in safe, authenticated environments.
+
 ## Core journey
 
 1. Sign up, sign in, and complete TOTP two-factor authentication.

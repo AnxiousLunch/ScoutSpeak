@@ -1,7 +1,16 @@
 # AGENTS.md - ScoutSpeak
 
 Read this file first. Then read ONLY the task card you were given and the files it names.
-Do not read SPEC.md end to end; use the section map in section 7.
+Then read ONLY the task card you were given and the files it names. Do not read SPEC.md end to end; use the section map in section 7.
+
+# Skill loading
+- Reusable skills live in agent-skills/.
+- For coding, debugging, refactoring, or code review tasks, read agent-skills/ponytail/SKILL.md before starting work, unless the task explicitly says not to use Ponytail.
+- Read only the selected skill and the supporting files it explicitly needs. Do not read every skill or every reference file.
+- Follow the skill alongside this file and the assigned task card. This file's hard rules, security requirements, model-role assignments, task boundaries, and token-saving rules always take precedence over a conflicting skill instruction.
+- Skills provide working methods, not authorization to expand task scope, change architecture, bypass checks, expose secrets, or perform destructive actions.
+- If a required skill file is missing or inaccessible, report that limitation and stop before implementation. Do not claim to have loaded a skill you could not read.
+- Do not repeatedly reread unchanged skill files within the same task or conversation when their contents are already available in context.
 
 ## 1. What we are building
 
@@ -125,6 +134,10 @@ Rules that apply: <numbers from section 2>
 
 ## 6. Token-saving rules
 
+- Load only the skill needed for the current task. Do not load the whole agent-skills/ directory.
+- Do not paste skill contents into prompts when the agent can read the files directly.
+- Invoke a skill by its repository path or name. If the platform cannot access repository files, request access or the relevant file instead of pretending the skill was loaded.
+- Keep skills concise. Put lengthy references in separate files and read them only when necessary.
 - Never paste whole files into prompts when a diff, signature or error excerpt is enough.
 - Do not re-read SPEC.md or the repo tree between tasks; rely on the card.
 - No exploratory "look around the codebase" steps. The card lists the files.
@@ -197,3 +210,12 @@ Rules that apply: <numbers from section 2>
 Outbound phone calls, WhatsApp/SMS, joining Zoom/Meet, bulk outreach, login-gated or paywalled
 scraping, contact-detail enrichment, a CRM, payments, fine-tuning, local GPU hosting, scheduled
 campaigns, multiple businesses per account.
+
+# 13. Reusable agent skills
+Skill root: agent-skills/.
+Each skill uses its own directory and a SKILL.md entry point.
+Keep each skill focused on one reusable workflow. Include a short description of when it should be used.
+Prefer existing, maintained skills over creating duplicate instructions.
+Do not modify upstream skill instructions casually. Keep attribution and licence information for reused skills.
+If a skill conflicts with this file, the task card, or a hard rule in section 2, follow this file and the task card.
+Add or modify skills only when explicitly requested or when a task card includes that work. Do not create documentation or skills unprompted.
