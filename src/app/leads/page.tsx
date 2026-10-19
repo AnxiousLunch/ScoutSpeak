@@ -1,32 +1,42 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { createClient } from '@/utils/supabase/server'
+import { LeadsClient } from './LeadsClient'
 
 export const metadata = {
   title: 'Leads — ScoutSpeak',
 }
 
-export default function LeadsPage() {
+export const dynamic = 'force-dynamic'
+
+export default async function LeadsPage() {
+  const supabase = createClient()
+
+  const [{ data: campaigns, error: campaignsError }, { data: leads, error: leadsError }] =
+    await Promise.all([
+      supabase
+        .from('campaigns')
+        .select('id')
+        .order('created_at', { ascending: false })
+        .limit(1),
+      supabase
+        .from('leads')
+        .select('id, company_name, website_url, research_status, lead_status, fit_score')
+        .order('created_at', { ascending: false }),
+    ])
+
+  if (campaignsError || leadsError) {
+    return (
+      <LeadsClient
+        leads={[]}
+        campaignId={null}
+        error={campaignsError?.message || leadsError?.message}
+      />
+    )
+  }
+
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold tracking-tight">Leads</h1>
-      <Card>
-        <CardHeader>
-          <CardTitle>No leads yet</CardTitle>
-          <CardDescription>
-            Import leads from a CSV or add company URLs to get started.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Lead enrichment, scoring, and outreach suggestions will appear here.
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+    <LeadsClient
+      leads={leads ?? []}
+      campaignId={campaigns?.[0]?.id ?? null}
+    />
   )
 }

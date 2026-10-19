@@ -10,9 +10,12 @@ export const metadata: Metadata = {
 };
 
 const nav = [
-  { href: '/count', label: 'Counter' },
+  { href: '/profile', label: 'Profile' },
+  { href: '/campaigns', label: 'Campaigns' },
   { href: '/leads', label: 'Leads' },
   { href: '/sessions', label: 'Sessions' },
+  { href: '/dev/voice', label: 'Voice' },
+  { href: '/dev/ai', label: 'AI ping' },
 ];
 
 export default async function RootLayout({

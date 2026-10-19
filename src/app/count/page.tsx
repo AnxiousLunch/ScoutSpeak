@@ -1,19 +1,6 @@
-import { createClient } from '@/utils/supabase/server'
-import { CounterPage } from '@/components/CounterPage'
+import { redirect } from 'next/navigation'
 
-export const dynamic = 'force-dynamic'
-
-export default async function CountPage() {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from('counter')
-    .select('value')
-    .eq('id', 1)
-    .single()
-
-  if (error) {
-    console.error('Counter fetch error on /count:', error.message)
-  }
-
-  return <CounterPage initialValue={data?.value} />
+export default function CountPage() {
+  // Legacy demo route: keep redirect so old links do not break.
+  redirect('/profile')
 }
