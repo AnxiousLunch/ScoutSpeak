@@ -78,10 +78,9 @@ This branch also contains a deployable **persistent Supabase-backed counter** at
 
 The root layout includes a top navigation bar with links to:
 
-- `/` — Dashboard placeholder
+- `/count` — Persistent Supabase counter (the counter is also the homepage at `/`)
 - `/leads` — Leads placeholder
 - `/sessions` — Sessions placeholder
-- `/count` — Persistent Supabase counter
 
 A development-only page at `/dev/ai` calls the temporary `/api/ai/ping` route and shows the validated AI response.
 
@@ -158,6 +157,49 @@ Never commit `.env.local` or the service-role key. The counter intentionally use
 - The function uses `security invoker` so it respects RLS; the update policy restricts writes to the single seeded row.
 
 
+## Authentication and MFA
+
+The app uses Supabase Auth with email/password and mandatory TOTP two-factor authentication.
+
+| Route | Purpose |
+|-------|---------|
+| `/signup` | Create an account. New Supabase projects require email confirmation, so the UI tells the user to check their inbox. |
+| `/login` | Sign in. Users with no verified factor are redirected to `/mfa/enroll`; users with a verified factor but an AAL1 session are redirected to `/mfa/challenge`. |
+| `/mfa/enroll` | Enrol an authenticator app, display the QR code and secret, and verify the first code. |
+| `/mfa/challenge` | Complete the second factor on subsequent sign-ins. |
+
+After a successful MFA challenge the session reaches AAL2 and the middleware allows access to protected routes and API endpoints.
+
+## Database schema and RLS
+
+The core ScoutSpeak schema lives in two migration files (run them in order):
+
+1. `supabase/migrations/0001_schema.sql` — creates the eight tables from `SPEC.md`:
+   `business_profiles`, `campaigns`, `leads`, `lead_evidence`,
+   `conversation_sessions`, `conversation_messages`, `session_reviews`,
+   `session_invites`.
+2. `supabase/migrations/0002_rls.sql` — enables RLS, revokes anon access, adds
+   owner-based permissive policies, parent-ownership `WITH CHECK` constraints,
+   and a restrictive AAL2 policy on every table.
+
+The existing counter migration is not modified.
+
+## Isolation test
+
+`scripts/test-isolation.ts` creates two pre-confirmed test users, enrols and verifies TOTP for both, then asserts:
+
+- A and B can each read their own rows.
+- B cannot read, update, or delete A's rows via `supabase-js` or direct PostgREST calls.
+- B cannot insert child rows pointing at A's parents or spoof A's `owner_id`.
+- An AAL1 session cannot read the user's own rows.
+- Anonymous requests read nothing.
+
+Run it locally after setting `SUPABASE_SERVICE_ROLE_KEY`:
+
+```bash
+npm run test:isolation
+```
+
 ## Scripts
 
 ```bash
@@ -166,8 +208,17 @@ npm run build      # Production build
 npm run start      # Start the production server
 npm run lint       # Run ESLint
 npm run typecheck  # Run TypeScript checks
+npm run test:isolation  # Run the two-account RLS/MFA isolation test
 ```
 
+
+## Manual Supabase configuration
+
+After running the SQL migrations, change these settings in the Supabase dashboard:
+
+1. **Auth → URL configuration**: add your production domain and `http://localhost:3000` for local development.
+2. **Auth → Providers → TOTP MFA**: enable TOTP so users can enrol an authenticator app.
+3. **Auth → Email templates**: confirm the confirmation email redirect URL points to your app (e.g. `/login`).
 
 ## Deployment
 
