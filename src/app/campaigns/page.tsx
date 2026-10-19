@@ -41,8 +41,8 @@ export default async function CampaignsPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold tracking-tight">Campaigns</h1>
+    <div className="space-y-5">
+      <div className="guided-page-heading"><p className="eyebrow">STEP 2 · FOCUS YOUR OUTREACH</p><h1>Campaigns</h1><p>Group prospects around a shared audience and a clear conversation goal. Each campaign is connected to the business profile you’ve saved most recently.</p></div>
       <CampaignForm
         campaigns={campaigns ?? []}
         canCreate={(profiles?.length ?? 0) > 0}

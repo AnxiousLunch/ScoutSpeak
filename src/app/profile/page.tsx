@@ -41,7 +41,7 @@ export default async function ProfilePage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold tracking-tight">Business profile</h1>
+      <div className="guided-page-heading"><p className="eyebrow">STEP 1 · SET YOUR FOUNDATION</p><h1>Business profile</h1><p>Tell ScoutSpeak what you offer and which prospects are a good fit. You can refine this any time; each save creates a version for future conversation briefs.</p></div>
 
       <ProfileForm
         initialValues={
@@ -64,8 +64,8 @@ export default async function ProfilePage() {
           <CardTitle>Version history</CardTitle>
           <CardDescription>
             {profiles && profiles.length > 0
-              ? `${profiles.length} version(s) saved.`
-              : 'No versions yet.'}
+              ? `${profiles.length} saved version(s). Earlier sessions can retain the profile version they were prepared with.`
+              : 'No versions yet. Your first save becomes version 1.'}
           </CardDescription>
         </CardHeader>
         <CardContent>

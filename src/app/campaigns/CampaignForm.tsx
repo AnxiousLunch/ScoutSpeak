@@ -14,6 +14,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select } from '@/components/ui/select'
+import { notify } from '@/components/ToastViewport'
+import Link from 'next/link'
 import { campaignSchema, type CampaignFormValues } from '@/lib/validation'
 import { saveCampaign, type SaveCampaignResult } from './actions'
 
@@ -91,29 +93,40 @@ export function CampaignForm({ campaigns, canCreate }: CampaignFormProps) {
       return
     }
 
-    const res = await saveCampaign(editingId, values)
-    if (res.success) {
-      setEditingId(undefined)
-      setName('')
-      setObjective('')
-      setStatus('draft')
-    } else if (res.fieldErrors) {
-      setFieldErrors(res.fieldErrors)
+    try {
+      const res = await saveCampaign(editingId, values)
+      if (res.success) {
+        setEditingId(undefined)
+        setName('')
+        setObjective('')
+        setStatus('draft')
+        notify(editingId ? 'Campaign updated.' : 'Campaign created.', 'success')
+      } else if (res.fieldErrors) {
+        setFieldErrors(res.fieldErrors)
+        notify('Check the highlighted fields and try again.', 'error')
+      } else {
+        notify(res.error || 'Could not save campaign. Please try again.', 'error')
+      }
+      setResult(res)
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : 'Could not save campaign. Please try again.'
+      setResult({ success: false, error: message })
+      notify(message, 'error')
+    } finally {
+      setIsPending(false)
     }
-    setResult(res)
-    setIsPending(false)
   }
 
   if (!canCreate) {
     return (
-      <Card>
+      <Card className="prerequisite-card">
         <CardHeader>
-          <CardTitle>Campaigns</CardTitle>
+          <span className="guide-mark">01</span>
+          <CardTitle>Start with your business profile</CardTitle>
+          <CardDescription>A campaign keeps a group of leads and its conversation goal together. First, describe your offer so lead research and session briefs have accurate context.</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Create a business profile first to start a campaign.
-          </p>
+          <Button asChild><Link href="/profile">Set up business profile <span className="ml-2">→</span></Link></Button>
         </CardContent>
       </Card>
     )
@@ -123,17 +136,22 @@ export function CampaignForm({ campaigns, canCreate }: CampaignFormProps) {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>{editingId ? 'Edit campaign' : 'New campaign'}</CardTitle>
+          <p className="eyebrow">STEP 2 · GIVE YOUR OUTREACH A FOCUS</p>
+          <CardTitle>{editingId ? 'Edit campaign' : 'Create a campaign'}</CardTitle>
           <CardDescription>
             {editingId
               ? 'Update the selected campaign. It stays linked to your latest profile version.'
-              : 'Create a campaign linked to your latest business profile version.'}
+              : 'A campaign groups your leads around one clear goal and is linked to your latest business profile.'}
           </CardDescription>
         </CardHeader>
+        <CardContent className="campaign-guide">
+          <div><strong>Keep one campaign focused on one kind of outreach.</strong>
+          <p>For example: “Website refresh conversations · independent retailers · Lahore”. You can create separate campaigns for different audiences or objectives.</p></div>
+        </CardContent>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Campaign name</Label>
+              <Label htmlFor="name">Campaign name <span className="required-label">Required</span></Label>
               <Input
                 id="name"
                 name="name"
@@ -141,7 +159,9 @@ export function CampaignForm({ campaigns, canCreate }: CampaignFormProps) {
                 onChange={(e) => setName(e.target.value)}
                 disabled={isPending}
                 aria-invalid={!!fieldErrors.name}
+                placeholder="e.g. Website refresh · local retailers"
               />
+              <p className="form-hint">Use a short name that helps you recognize the audience and offer at a glance.</p>
               {fieldErrors.name?.map((msg) => (
                 <p key={msg} className="text-sm text-destructive">
                   {msg}
@@ -158,7 +178,12 @@ export function CampaignForm({ campaigns, canCreate }: CampaignFormProps) {
                 value={objective}
                 onChange={(e) => setObjective(e.target.value)}
                 disabled={isPending}
+                placeholder="e.g. Learn whether the business is considering a website refresh and, if useful, agree on a short follow-up."
+                aria-invalid={!!fieldErrors.objective}
+                aria-describedby="objective-help"
               />
+              <p id="objective-help" className="form-hint">Describe what a useful first conversation should accomplish. Keep it low-pressure and specific; this helps shape the conversation brief.</p>
+              {fieldErrors.objective?.map((msg) => <p key={msg} className="text-sm text-destructive">{msg}</p>)}
             </div>
 
             <div className="space-y-2">
@@ -171,6 +196,7 @@ export function CampaignForm({ campaigns, canCreate }: CampaignFormProps) {
                 onChange={(value) => setStatus(value)}
                 disabled={isPending}
               />
+              <p className="form-hint">Draft campaigns are still being prepared. Set active when you’re ready to work from this campaign; pause or archive it as needed.</p>
             </div>
 
             <div className="flex gap-2">
@@ -188,7 +214,7 @@ export function CampaignForm({ campaigns, canCreate }: CampaignFormProps) {
               <Alert>
                 <AlertTitle>Saved</AlertTitle>
                 <AlertDescription>
-                  Campaign {editingId ? 'updated' : 'created'} successfully.
+                  Campaign saved successfully.
                 </AlertDescription>
               </Alert>
             )}

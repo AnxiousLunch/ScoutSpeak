@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge, type BadgeProps } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -32,6 +33,8 @@ import {
 } from '@/components/ui/table'
 import { Select } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
+import { notify } from '@/components/ToastViewport'
+import Link from 'next/link'
 import {
   leadStatusValues,
   type LeadStatus,
@@ -47,6 +50,7 @@ import {
   importCsvLeads,
   type LeadActionResult,
 } from './actions'
+import { createRehearsalSession } from '@/app/sessions/actions'
 
 interface Lead {
   id: string
@@ -83,6 +87,7 @@ const statusOptions = [
 ]
 
 export function LeadsClient({ leads, campaignId, error }: LeadsClientProps) {
+  const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [manualOpen, setManualOpen] = useState(false)
   const [csvOpen, setCsvOpen] = useState(false)
@@ -106,13 +111,15 @@ export function LeadsClient({ leads, campaignId, error }: LeadsClientProps) {
 
   if (!campaignId) {
     return (
-      <Card>
+      <Card className="prerequisite-card">
         <CardHeader>
-          <CardTitle>No campaign yet</CardTitle>
+          <span className="guide-mark">02</span>
+          <CardTitle>Create a campaign before adding leads</CardTitle>
           <CardDescription>
-            Create a campaign before adding leads.
+            Campaigns keep prospects together around a shared goal. Give your outreach a focus, then add the companies you want to research.
           </CardDescription>
         </CardHeader>
+        <CardContent><Button asChild><Link href="/campaigns">Set up a campaign <span className="ml-2">→</span></Link></Button></CardContent>
       </Card>
     )
   }
@@ -121,9 +128,11 @@ export function LeadsClient({ leads, campaignId, error }: LeadsClientProps) {
     if (result.success) {
       setFormSuccess(successMessage)
       setFormError(null)
+      notify(successMessage, 'success')
     } else {
       setFormError(result.error)
       setFormSuccess(null)
+      notify(result.error, 'error')
     }
   }
 
@@ -146,20 +155,20 @@ export function LeadsClient({ leads, campaignId, error }: LeadsClientProps) {
 
     const form = event.currentTarget
     startTransition(() => {
-      addLead(campaignId!, parsed.data).then((result) => {
+        addLead(campaignId!, parsed.data).then((result) => {
         handleAction(result, 'Lead added.')
         if (result.success) {
           setManualOpen(false)
           form.reset()
         }
-      })
+      }).catch((cause) => handleAction({ success: false, error: cause instanceof Error ? cause.message : 'Could not add this lead. Please try again.' }, ''))
     })
   }
 
   function handleDelete(id: string) {
     setDeleteId(null)
     startTransition(() => {
-      deleteLead(id).then((result) => handleAction(result, 'Lead deleted.'))
+      deleteLead(id).then((result) => handleAction(result, 'Lead deleted.')).catch((cause) => handleAction({ success: false, error: cause instanceof Error ? cause.message : 'Could not delete this lead. Please try again.' }, ''))
     })
   }
 
@@ -167,7 +176,7 @@ export function LeadsClient({ leads, campaignId, error }: LeadsClientProps) {
     if (!value) return
     const status = value as LeadStatus
     startTransition(() => {
-      updateLeadStatus(id, status).then((result) => handleAction(result, 'Status updated.'))
+      updateLeadStatus(id, status).then((result) => handleAction(result, 'Status updated.')).catch((cause) => handleAction({ success: false, error: cause instanceof Error ? cause.message : 'Could not update the lead. Please try again.' }, ''))
     })
   }
 
@@ -181,7 +190,16 @@ export function LeadsClient({ leads, campaignId, error }: LeadsClientProps) {
         } else {
           handleAction(result, `${result.count} sample lead(s) loaded.`)
         }
-      })
+      }).catch((cause) => handleAction({ success: false, error: cause instanceof Error ? cause.message : 'Could not load sample leads. Please try again.' }, ''))
+    })
+  }
+
+  function handlePractice(leadId: string) {
+    startTransition(() => {
+      createRehearsalSession(leadId).then((result) => {
+        if (result.success) router.push(`/sessions/${result.id}`)
+        else notify(result.error, 'error')
+      }).catch((cause) => notify(cause instanceof Error ? cause.message : 'Could not start a rehearsal. Please try again.', 'error'))
     })
   }
 
@@ -194,7 +212,14 @@ export function LeadsClient({ leads, campaignId, error }: LeadsClientProps) {
 
     if (!file) return
 
-    const { rows, error } = await parseCsvPreview(file)
+    let preview: Awaited<ReturnType<typeof parseCsvPreview>>
+    try {
+      preview = await parseCsvPreview(file)
+    } catch (cause) {
+      setCsvError(cause instanceof Error ? cause.message : 'Could not read this CSV file.')
+      return
+    }
+    const { rows, error } = preview
     if (error) {
       setCsvError(error)
       return
@@ -210,13 +235,20 @@ export function LeadsClient({ leads, campaignId, error }: LeadsClientProps) {
   async function handleCsvImport() {
     if (!csvReport || csvReport.accepted.length === 0) return
     setCsvImporting(true)
-    const result = await importCsvLeads(
+    let result: LeadActionResult & { count?: number }
+    try {
+    result = await importCsvLeads(
       campaignId!,
       csvReport.accepted.map((r) => ({
         company_name: r.company_name,
         website_url: r.website_url,
       }))
     )
+    } catch (cause) {
+      setCsvError(cause instanceof Error ? cause.message : 'Import failed. Please try again.')
+      setCsvImporting(false)
+      return
+    }
     setCsvImporting(false)
     if (result.success) {
       setCsvOpen(false)
@@ -231,9 +263,10 @@ export function LeadsClient({ leads, campaignId, error }: LeadsClientProps) {
 
   return (
     <div className="space-y-4">
+      <div className="guided-page-heading"><p className="eyebrow">STEP 3 · BUILD YOUR PROSPECT LIST</p><h1>Leads</h1><p>Add companies you may want to work with. Public website pages provide context for later research; ScoutSpeak marks missing evidence clearly rather than filling gaps with guesses.</p></div>
+      <div className="lead-status-guide"><span className="guide-mark">i</span><p><strong>Reading the table:</strong> Research shows whether there’s enough source evidence; lead status is your own follow-up tracking. A fit score helps prioritize attention, it does not predict a sale.</p></div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Leads</h1>
           <p className="text-sm text-muted-foreground">
             {leads.length} lead{leads.length === 1 ? '' : 's'}
           </p>
@@ -252,11 +285,12 @@ export function LeadsClient({ leads, campaignId, error }: LeadsClientProps) {
               <DialogHeader>
                 <DialogTitle>Import leads from CSV</DialogTitle>
                 <DialogDescription>
-                  Columns: company_name, website_url (or name/company, website/url). Max{' '}
+                  Add a header row with <code>company_name</code> and <code>website_url</code>. We also recognize name/company and website/url. Keep URLs public and include http:// or https://. Max{' '}
                   {CSV_MAX_ROWS} rows, {Math.round(CSV_MAX_SIZE_BYTES / 1024 / 1024)} MB.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
+                <div className="csv-example"><span>Example header row</span><code>company_name,website_url</code><span>Example lead row</span><code>Acme Outfitters,https://acme.example</code></div>
                 <Input
                   type="file"
                   accept=".csv,text/csv"
@@ -278,6 +312,7 @@ export function LeadsClient({ leads, campaignId, error }: LeadsClientProps) {
                       {csvReport.rejected.length} · Duplicates:{" "}
                       {csvReport.deduplicated.length}
                     </p>
+                    <p className="text-muted-foreground">Only accepted rows will be added. New leads start as unverified until evidence is available.</p>
                     {csvReport.rejected.length > 0 && (
                       <div className="max-h-32 overflow-auto rounded-md border p-2">
                         {csvReport.rejected.map((r) => (
@@ -307,21 +342,25 @@ export function LeadsClient({ leads, campaignId, error }: LeadsClientProps) {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Add lead manually</DialogTitle>
+                <DialogDescription>Add a company and its public website. ScoutSpeak uses the URL as a source for company context; inaccessible pages may leave the lead unverified.</DialogDescription>
               </DialogHeader>
               <form onSubmit={handleManualSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="company_name">Company name</Label>
-                  <Input id="company_name" name="company_name" required />
+                  <Label htmlFor="company_name">Company name <span className="required-label">Required</span></Label>
+                  <Input id="company_name" name="company_name" required placeholder="e.g. Acme Outfitters" aria-describedby="lead-name-help" />
+                  <p id="lead-name-help" className="form-hint">Use the public business name shown on its website.</p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="website_url">Website URL</Label>
+                  <Label htmlFor="website_url">Public website <span className="required-label">Required</span></Label>
                   <Input
                     id="website_url"
                     name="website_url"
                     type="url"
                     placeholder="https://example.com"
                     required
+                    aria-describedby="lead-url-help"
                   />
+                  <p id="lead-url-help" className="form-hint">Use the company’s public homepage or a relevant public page. We don’t ask for contact details.</p>
                 </div>
                 <DialogFooter>
                   <Button type="submit">Add</Button>
@@ -371,7 +410,7 @@ export function LeadsClient({ leads, campaignId, error }: LeadsClientProps) {
                 <TableHead>Research</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Fit</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="text-right">Next step</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -411,7 +450,7 @@ export function LeadsClient({ leads, campaignId, error }: LeadsClientProps) {
                       : '—'}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Dialog
+                    <div className="lead-row-actions"><Button size="sm" onClick={() => handlePractice(lead.id)} disabled={isPending}>{isPending ? 'Opening…' : 'Practice'}</Button><Dialog
                       open={deleteId === lead.id}
                       onOpenChange={(open) => setDeleteId(open ? lead.id : null)}
                     >
@@ -440,7 +479,7 @@ export function LeadsClient({ leads, campaignId, error }: LeadsClientProps) {
                           </Button>
                         </DialogFooter>
                       </DialogContent>
-                    </Dialog>
+                    </Dialog></div>
                   </TableCell>
                 </TableRow>
               ))}

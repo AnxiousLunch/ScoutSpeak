@@ -13,6 +13,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { notify } from '@/components/ToastViewport'
 import {
   businessProfileSchema,
   type BusinessProfileFormValues,
@@ -60,15 +61,26 @@ export function ProfileForm({ initialValues, currentVersion }: ProfileFormProps)
     }
 
     const form = event.currentTarget
-    const res = await saveBusinessProfile(values)
-    if (res.success) {
-      setSavedVersion(res.version)
-      form.reset()
-    } else if (res.fieldErrors) {
-      setFieldErrors(res.fieldErrors)
+    try {
+      const res = await saveBusinessProfile(values)
+      if (res.success) {
+        setSavedVersion(res.version)
+        form.reset()
+        notify(`Business profile version ${res.version} saved.`, 'success')
+      } else if (res.fieldErrors) {
+        setFieldErrors(res.fieldErrors)
+        notify('Check the highlighted fields and try again.', 'error')
+      } else {
+        notify(res.error || 'Could not save your profile. Please try again.', 'error')
+      }
+      setResult(res)
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : 'Could not save your profile. Please try again.'
+      setResult({ success: false, error: message })
+      notify(message, 'error')
+    } finally {
+      setIsPending(false)
     }
-    setResult(res)
-    setIsPending(false)
   }
 
   return (
@@ -82,16 +94,23 @@ export function ProfileForm({ initialValues, currentVersion }: ProfileFormProps)
         </CardDescription>
       </CardHeader>
       <CardContent>
+        <div className="form-guide" role="note">
+          <span className="guide-mark">✳</span>
+          <div><strong>This is the source of truth for your offer.</strong><p>ScoutSpeak uses these details to assess lead fit and ground conversation briefs. Be specific and stick to claims you can stand behind; the AI should never promise more than you do.</p></div>
+        </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="business_name">Business name</Label>
+            <Label htmlFor="business_name">Business name <span className="required-label">Required</span></Label>
             <Input
               id="business_name"
               name="business_name"
               defaultValue={initialValues?.business_name}
+              placeholder="e.g. Northstar Web Studio"
               disabled={isPending}
               aria-invalid={!!fieldErrors.business_name}
+              aria-describedby="business-name-help"
             />
+            <p id="business-name-help" className="form-hint">The name you want the AI representative to use when introducing your business.</p>
             {fieldErrors.business_name?.map((msg) => (
               <p key={msg} className="text-sm text-destructive">
                 {msg}
@@ -100,15 +119,18 @@ export function ProfileForm({ initialValues, currentVersion }: ProfileFormProps)
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="services">Services</Label>
+            <Label htmlFor="services">What you offer <span className="required-label">Required</span></Label>
             <Textarea
               id="services"
               name="services"
               rows={3}
               defaultValue={initialValues?.services}
+              placeholder="e.g. Website redesigns, landing pages, and small web applications for local businesses."
               disabled={isPending}
               aria-invalid={!!fieldErrors.services}
+              aria-describedby="services-help"
             />
+            <p id="services-help" className="form-hint">List the services you actually sell and who they’re for. Mention useful boundaries such as project size or ongoing support.</p>
             {fieldErrors.services?.map((msg) => (
               <p key={msg} className="text-sm text-destructive">
                 {msg}
@@ -117,15 +139,18 @@ export function ProfileForm({ initialValues, currentVersion }: ProfileFormProps)
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="value_proposition">Value proposition</Label>
+            <Label htmlFor="value_proposition">Why customers choose you <span className="required-label">Required</span></Label>
             <Textarea
               id="value_proposition"
               name="value_proposition"
               rows={3}
               defaultValue={initialValues?.value_proposition}
+              placeholder="We help independent retailers turn outdated websites into clear, mobile-friendly storefronts that make it easier for customers to browse and enquire."
               disabled={isPending}
               aria-invalid={!!fieldErrors.value_proposition}
+              aria-describedby="value-proposition-help"
             />
+            <p id="value-proposition-help" className="form-hint">In one or two sentences, connect the customer you serve, the problem you solve, and the practical result. Avoid unsupported numbers or guarantees.</p>
             {fieldErrors.value_proposition?.map((msg) => (
               <p key={msg} className="text-sm text-destructive">
                 {msg}
@@ -135,27 +160,33 @@ export function ProfileForm({ initialValues, currentVersion }: ProfileFormProps)
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="target_industry">Target industry</Label>
+              <Label htmlFor="target_industry">Best-fit industries <span className="optional-label">Optional</span></Label>
               <Input
                 id="target_industry"
                 name="target_industry"
                 defaultValue={initialValues?.target_industry}
                 disabled={isPending}
+                placeholder="e.g. Local retail, hospitality"
+                aria-describedby="industry-help"
               />
+              <p id="industry-help" className="form-hint">Name the types of businesses you understand or want to work with. Leave blank if you serve many industries.</p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="target_geography">Target geography</Label>
+              <Label htmlFor="target_geography">Where you work <span className="optional-label">Optional</span></Label>
               <Input
                 id="target_geography"
                 name="target_geography"
                 defaultValue={initialValues?.target_geography}
                 disabled={isPending}
+                placeholder="e.g. Lahore and remote across Pakistan"
+                aria-describedby="geography-help"
               />
+              <p id="geography-help" className="form-hint">Use the area where you can serve clients, not necessarily where your office is located.</p>
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="constraints">Constraints</Label>
+            <Label htmlFor="constraints">Things the AI must respect <span className="optional-label">Optional</span></Label>
             <Textarea
               id="constraints"
               name="constraints"
@@ -163,7 +194,9 @@ export function ProfileForm({ initialValues, currentVersion }: ProfileFormProps)
               defaultValue={initialValues?.constraints}
               disabled={isPending}
               placeholder="e.g. no discounting on a first call"
+              aria-describedby="constraints-help"
             />
+            <p id="constraints-help" className="form-hint">Add boundaries for sales conversations: services you don’t provide, pricing promises to avoid, or topics that need your review.</p>
           </div>
 
           <Button type="submit" disabled={isPending}>

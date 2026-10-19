@@ -111,6 +111,7 @@ export function AuthForm({ mode, action }: AuthFormProps) {
               placeholder="you@example.com"
               disabled={isPending}
             />
+            <p className="form-hint">Use an email address you can access. We may send a confirmation link when you create an account.</p>
           </div>
 
           <div className="space-y-2">
@@ -127,6 +128,7 @@ export function AuthForm({ mode, action }: AuthFormProps) {
               placeholder="••••••••"
               disabled={isPending}
             />
+            {mode === 'signup' && <p className="form-hint">Use at least 8 characters. A password manager can help you keep it unique.</p>}
           </div>
 
           <Button
