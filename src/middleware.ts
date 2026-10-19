@@ -43,7 +43,7 @@ export async function middleware(request: NextRequest) {
   const {
     data: { session },
   } = await supabase.auth.getSession()
-  const { data: aal } = await supabase.auth.getAuthenticatorAssuranceLevel()
+  const { data: aal, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
   const { data: factorsData } = await supabase.auth.mfa.listFactors()
 
   const isApi = pathname.startsWith('/api/')

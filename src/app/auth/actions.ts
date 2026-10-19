@@ -68,7 +68,7 @@ export async function login(formData: FormData): Promise<AuthResult> {
     return { redirect: '/mfa/enroll' }
   }
 
-  const { data: aal } = await supabase.auth.getAuthenticatorAssuranceLevel()
+  const { data: aal, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
   if (aal?.currentLevel === 'aal1' && aal?.nextLevel === 'aal2') {
     return { redirect: '/mfa/challenge' }
   }
