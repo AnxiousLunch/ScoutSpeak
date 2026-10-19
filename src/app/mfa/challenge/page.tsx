@@ -86,7 +86,7 @@ export default function MfaChallengePage() {
         <CardHeader>
           <CardTitle>Two-factor authentication</CardTitle>
           <CardDescription>
-            Enter the 6-digit code from your authenticator app.
+            Open the authenticator app you enrolled for ScoutSpeak and enter its current 6-digit code. It refreshes regularly.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -107,6 +107,7 @@ export default function MfaChallengePage() {
                   disabled={verifying}
                   required
                 />
+                <p className="form-hint">If a code is rejected, wait for the next one and check your phone’s clock is set automatically.</p>
               </div>
               <Button type="submit" className="w-full" disabled={verifying}>
                 {verifying ? 'Verifying…' : 'Verify and continue'}

@@ -4,10 +4,8 @@
 
 ScoutSpeak is an AI-assisted prospecting workspace for small B2B service businesses. It turns a business profile and candidate companies into a source-backed lead table, prepares persona-based outreach, runs a browser voice conversation, and saves the transcript and outcome so the user can review what appears to work.
 
-This branch also contains a deployable **persistent Supabase-backed counter** at `/` and `/count` that tests the database connection and atomic server-side increments.
 
-
-## Counter quick start
+## Quick start
 
 1. Copy `.env.example` to `.env.local` and fill in your Supabase URL and anon key:
 
@@ -16,73 +14,39 @@ This branch also contains a deployable **persistent Supabase-backed counter** at
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
    ```
 
-2. Apply the counter migration in the Supabase SQL Editor (or approve the pending migration in the workspace Database panel):
-
-   ```sql
-   create table if not exists public.counter (
-     id int primary key,
-     value int not null default 0
-   );
-
-   alter table public.counter enable row level security;
-
-   insert into public.counter (id, value)
-   values (1, 0)
-   on conflict (id) do nothing;
-
-   create or replace function public.increment_counter()
-   returns int
-   language plpgsql
-   security invoker
-   set search_path = public
-   as $
-   declare
-     new_value int;
-   begin
-     update public.counter
-     set value = value + 1
-     where id = 1
-     returning value into new_value;
-
-     return new_value;
-   end;
-   $;
-
-   grant execute on function public.increment_counter() to anon, authenticated;
-
-   create policy "Allow public read access on counter"
-     on public.counter
-     for select
-     to anon, authenticated
-     using (true);
-
-   create policy "Allow public update on counter"
-     on public.counter
-     for update
-     to anon, authenticated
-     using (id = 1)
-     with check (id = 1);
-   ```
-
-3. Install dependencies and run locally:
+2. Install dependencies and run locally:
 
    ```bash
    npm install
    npm run dev
    ```
 
-4. Open http://localhost:3000 or http://localhost:3000/count.
+3. Open http://localhost:3000.
 
 
 ## App shell
 
 The root layout includes a top navigation bar with links to:
 
-- `/count` — Persistent Supabase counter (the counter is also the homepage at `/`)
-- `/leads` — Leads placeholder
-- `/sessions` — Sessions placeholder
+- `/profile` — Business profile
+- `/campaigns` — Campaigns
+- `/leads` — Leads
+- `/sessions` — Sessions
+- `/dev/voice` — Voice smoke test (AAL2-protected)
+- `/dev/ai` — AI ping (requires server-side AI config)
 
 A development-only page at `/dev/ai` calls the temporary `/api/ai/ping` route and shows the validated AI response.
+
+A protected `/dev/voice` page runs a voice/typed smoke test with the AI sales representative via `POST /api/voice/turn`.
+
+## MVP pages
+
+| Route | What it does |
+|-------|--------------|
+| `/profile` | Editable, versioned business profile. Every save inserts a new version; the current version and a short history are shown. |
+| `/campaigns` | Create and edit campaigns (name, objective, status). Each campaign is linked to the latest business profile version. |
+| `/leads` | Lead table with research status badges, lead status select, manual add (http/https URL required), delete confirmation, CSV import preview/report, and an idempotent "Load sample leads" button. |
+| `/dev/voice` | Protected smoke-test page for spoken or typed conversation with the AI representative. |
 
 ## AI provider adapter
 
@@ -183,6 +147,18 @@ The core ScoutSpeak schema lives in two migration files (run them in order):
    and a restrictive AAL2 policy on every table.
 
 The existing counter migration is not modified.
+
+## Voice smoke test
+
+`src/lib/voice/types.ts` defines the provider-independent `VoiceSessionAdapter` and normalised event stream (`partial`/`final` transcript, `turn`, `status`, `error`) from `SPEC.md` Section 7.
+
+`src/lib/voice/browser-speech.ts` implements recognition and speech-synthesis using the browser Web Speech API, with a typed fallback.
+
+`src/lib/voice/managed-room.ts` is a stub that throws `not implemented` until a provider-backed room is chosen.
+
+`POST /api/voice/turn` is AAL2-protected and validated with Zod. It accepts the last six turns plus a user message (max 500 characters) and calls `getModelClient().generateText`. The system prompt requires the agent to identify itself as an AI, keep replies to 1-2 short sentences, and invent no facts about the prospect or services. `AiError` codes are mapped to HTTP status codes; no canned text is returned.
+
+`/dev/voice` is protected by the same AAL2 middleware. It starts with a spoken AI introduction, supports a microphone toggle (with unsupported-browser and permission-denied handling), always shows a typed input, records the input method per turn (`browser_speech` or `typed`), displays a live transcript, speaks the AI reply, and offers a retry on AI errors. No audio is stored and no session is persisted yet.
 
 ## Isolation test
 

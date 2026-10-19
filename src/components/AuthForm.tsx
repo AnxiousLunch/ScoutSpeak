@@ -1,7 +1,10 @@
+
 'use client'
 
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import type { FormEvent } from 'react'
+
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,46 +17,78 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
+type AuthActionResult =
+  | { error: string; success?: never; redirect?: never }
+  | { error?: never; success: string; redirect?: never }
+  | { error?: never; success?: never; redirect: string }
+
 interface AuthFormProps {
   mode: 'signup' | 'login'
-  action: (formData: FormData) => Promise<
-    | { error: string; success?: never; redirect?: never }
-    | { error?: never; success: string; redirect?: never }
-    | { error?: never; success?: never; redirect: string }
-  >
+  action: (formData: FormData) => Promise<AuthActionResult>
 }
 
 export function AuthForm({ mode, action }: AuthFormProps) {
   const router = useRouter()
+
   const [isPending, setIsPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
   const title = mode === 'signup' ? 'Create your account' : 'Sign in'
+
   const description =
     mode === 'signup'
       ? 'Sign up to start using ScoutSpeak.'
       : 'Welcome back. Sign in to continue.'
+
   const submitLabel = mode === 'signup' ? 'Sign up' : 'Sign in'
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+
+    if (isPending) return
+
     setError(null)
     setSuccess(null)
     setIsPending(true)
 
-    const formData = new FormData(event.currentTarget)
-    const result = await action(formData)
+    try {
+      const formData = new FormData(event.currentTarget)
+      const result: unknown = await action(formData)
 
-    if ('error' in result) {
-      setError(result.error)
-    } else if ('success' in result) {
-      setSuccess(result.success)
-    } else if ('redirect' in result) {
-      router.push(result.redirect)
+      if (!result || typeof result !== 'object') {
+        setError('An unexpected response was received. Please try again.')
+        return
+      }
+
+      if ('error' in result && typeof result.error === 'string') {
+        setError(result.error)
+        return
+      }
+
+      if ('success' in result && typeof result.success === 'string') {
+        setSuccess(result.success)
+        return
+      }
+
+      if ('redirect' in result && typeof result.redirect === 'string') {
+        router.push(result.redirect)
+        router.refresh()
+        return
+      }
+
+      setError('An unexpected response was received. Please try again.')
+    } catch (err) {
+      console.error('Authentication error:', err)
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Something went wrong. Please try again.'
+      )
+    } finally {
+      setIsPending(false)
     }
-
-    setIsPending(false)
   }
 
   return (
@@ -62,6 +97,7 @@ export function AuthForm({ mode, action }: AuthFormProps) {
         <CardTitle>{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
+
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -75,6 +111,7 @@ export function AuthForm({ mode, action }: AuthFormProps) {
               placeholder="you@example.com"
               disabled={isPending}
             />
+            <p className="form-hint">Use an email address you can access. We may send a confirmation link when you create an account.</p>
           </div>
 
           <div className="space-y-2">
@@ -85,13 +122,20 @@ export function AuthForm({ mode, action }: AuthFormProps) {
               type="password"
               required
               minLength={8}
-              autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+              autoComplete={
+                mode === 'signup' ? 'new-password' : 'current-password'
+              }
               placeholder="••••••••"
               disabled={isPending}
             />
+            {mode === 'signup' && <p className="form-hint">Use at least 8 characters. A password manager can help you keep it unique.</p>}
           </div>
 
-          <Button type="submit" className="w-full" disabled={isPending}>
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={isPending}
+          >
             {isPending ? 'Working…' : submitLabel}
           </Button>
 

@@ -95,8 +95,7 @@ export default function MfaEnrollPage() {
         <CardHeader>
           <CardTitle>Set up two-factor authentication</CardTitle>
           <CardDescription>
-            Scan the QR code with your authenticator app, then enter the 6-digit
-            code to verify.
+            Add ScoutSpeak to an authenticator app on your phone, then enter its current 6-digit code to confirm setup.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -112,9 +111,7 @@ export default function MfaEnrollPage() {
                 <img src={qr} alt="TOTP QR code" className="h-48 w-48" />
               </div>
               {secret && (
-                <p className="break-all text-center text-sm text-muted-foreground">
-                  Secret: {secret}
-                </p>
+                <div className="mfa-secret"><p>If you can’t scan the QR code, enter this setup key in your authenticator app:</p><code className="break-all">{secret}</code><p>Keep this key private. Anyone with it can generate your sign-in codes.</p></div>
               )}
 
               <form onSubmit={verify} className="space-y-4">
@@ -131,6 +128,7 @@ export default function MfaEnrollPage() {
                     disabled={verifying}
                     required
                   />
+                  <p className="form-hint">Enter the current code for ScoutSpeak. Codes refresh regularly, so use the newest one.</p>
                 </div>
                 <Button type="submit" className="w-full" disabled={verifying}>
                   {verifying ? 'Verifying…' : 'Verify and continue'}
