@@ -1,11 +1,11 @@
-import type { ModelClient } from './types.js'
-import type { EnrichmentResult } from './schema.js'
-import type { FitResult } from './fit.js'
-import type { PageInput, ProfileInput } from './prompt.js'
-import { buildEnrichmentPrompt } from './prompt.js'
-import { makeEnrichmentSchema } from './citations.js'
-import { computeFit } from './fit.js'
-import { researchStatus, type ResearchStatus } from './status.js'
+import type { ModelClient } from './types'
+import type { EnrichmentResult } from './schema'
+import type { FitResult } from './fit'
+import type { PageInput, ProfileInput } from './prompt'
+import { buildEnrichmentPrompt } from './prompt'
+import { makeEnrichmentSchema } from './citations'
+import { computeFit } from './fit'
+import { researchStatus, type ResearchStatus } from './status'
 
 export interface LeadInput {
   company_name?: string | null

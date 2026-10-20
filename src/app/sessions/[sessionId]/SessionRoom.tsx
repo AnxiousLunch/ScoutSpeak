@@ -35,7 +35,7 @@ export function SessionRoom({ sessionId, leadName, leadStatus, evidenceCount, ca
     const response = await fetch(`/api/sessions/${sessionId}/turn`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
     })
-    const result = await response.json() as { message?: SessionMessage | string; messageText?: string; saved?: boolean }
+    const result = await response.json() as { message?: SessionMessage | string; messageText?: string; saved?: boolean; status?: string; ended?: boolean }
     if (!response.ok) throw new Error(typeof result.message === 'string' ? result.message : 'The request failed. Please retry.')
     return result
   }
@@ -63,6 +63,7 @@ export function SessionRoom({ sessionId, leadName, leadStatus, evidenceCount, ca
         const humanMessage: SessionMessage = { sequence_number: agentMessage.sequence_number - 1, speaker_role: 'human', message_text: submitted }
         setMessages((current) => [...current.filter((item) => item.sequence_number !== humanMessage.sequence_number && item.sequence_number !== agentMessage.sequence_number), humanMessage, agentMessage])
       }
+      if (result.ended) setStatus('completed')
       setText('')
     } catch (cause) {
       setError(`${cause instanceof Error ? cause.message : 'The AI could not reply.'} Your message is kept in the box so you can retry.`)
@@ -71,8 +72,11 @@ export function SessionRoom({ sessionId, leadName, leadStatus, evidenceCount, ca
 
   async function end() {
     setBusy(true); setError(null)
-    try { await request({ action: 'end' }); setStatus('completed') }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not end this rehearsal.') }
+    try {
+      const result = await request({ action: 'end' })
+      setStatus(result.status ?? 'completed')
+    }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not end this session.') }
     finally { setBusy(false) }
   }
 

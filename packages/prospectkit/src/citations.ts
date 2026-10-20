@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { enrichmentResultSchema } from './schema.js'
+import { enrichmentResultSchema } from './schema'
 
 export function makeEnrichmentSchema(allowedTags: Set<string>) {
   const tagSchema = z.string().refine((value) => allowedTags.has(value), {

@@ -50,7 +50,6 @@ import {
   importCsvLeads,
   type LeadActionResult,
 } from './actions'
-import { createRehearsalSession } from '@/app/sessions/actions'
 
 interface Lead {
   id: string
@@ -222,12 +221,7 @@ export function LeadsClient({ leads, campaignId, error }: LeadsClientProps) {
   }
 
   function handlePractice(leadId: string) {
-    startTransition(() => {
-      createRehearsalSession(leadId).then((result) => {
-        if (result.success) router.push(`/sessions/${result.id}`)
-        else notify(result.error, 'error')
-      }).catch((cause) => notify(cause instanceof Error ? cause.message : 'Could not start a rehearsal. Please try again.', 'error'))
-    })
+    router.push(`/leads/${leadId}`)
   }
 
   async function handleCsvFileChange(event: React.ChangeEvent<HTMLInputElement>) {

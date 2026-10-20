@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { lookup } from 'dns/promises'
 import { request, Agent } from 'undici'
-import { safeFetchPage, FetchBlockedError } from './safe-fetch'
+import { safeFetchPage } from './safe-fetch'
+import { FetchBlockedError } from './errors'
 
 vi.mock('dns/promises', () => ({ lookup: vi.fn() }))
 vi.mock('undici', async (importOriginal) => {

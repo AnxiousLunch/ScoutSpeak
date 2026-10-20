@@ -76,7 +76,7 @@ export async function extractOutcome(
     '',
     input.brief ? `BRIEF:\n${input.brief}\n` : '',
     'TRANSCRIPT:\n',
-    formatTranscript(messages),
+    formatTranscript(input.messages),
   ].join('\n')
 
   try {

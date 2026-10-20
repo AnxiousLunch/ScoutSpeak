@@ -1,8 +1,2 @@
-alter table if exists public.lead_evidence add column if not exists run_id uuid;
-
-alter table if exists public.leads add column if not exists enriched_at timestamptz;
-alter table if exists public.leads add column if not exists fit_label text;
-alter table if exists public.leads add column if not exists fit_reason text;
-alter table if exists public.leads add column if not exists missing_fields jsonb default '[]'::jsonb;
-alter table if exists public.leads add column if not exists citations jsonb default '{}'::jsonb;
-alter table if exists public.leads add column if not exists enrichment_error text;
+-- DEPRECATED: this duplicate enrichment migration is superseded by supabase/migrations/0003_enrichment.sql.
+-- Canonical run order: 0001_schema.sql, 0002_rls.sql, 0003_enrichment.sql, then 0004_conversation_session_brief.sql.
