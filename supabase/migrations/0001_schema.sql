@@ -18,7 +18,7 @@ create table if not exists public.business_profiles (
   updated_at timestamptz not null default now()
 );
 
-alter table public.business_profiles add constraint if not exists business_profiles_owner_version_unique
+alter table public.business_profiles add constraint business_profiles_owner_version_unique
   unique (owner_id, version);
 
 create index if not exists idx_business_profiles_owner_id
@@ -38,7 +38,7 @@ create table if not exists public.campaigns (
   updated_at timestamptz not null default now()
 );
 
-alter table public.campaigns add constraint if not exists campaigns_status_check
+alter table public.campaigns add constraint campaigns_status_check
   check (status is null or status in ('draft','active','paused','archived'));
 
 create index if not exists idx_campaigns_owner_id on public.campaigns(owner_id);
@@ -65,7 +65,7 @@ create table if not exists public.leads (
   updated_at timestamptz not null default now()
 );
 
-alter table public.leads add constraint if not exists leads_research_status_check
+alter table public.leads add constraint leads_research_status_check
   check (research_status in ('verified','partial','unverified'));
 
 create index if not exists idx_leads_owner_id on public.leads(owner_id);
@@ -114,13 +114,13 @@ create table if not exists public.conversation_sessions (
   updated_at timestamptz not null default now()
 );
 
-alter table public.conversation_sessions add constraint if not exists conversation_sessions_purpose_check
+alter table public.conversation_sessions add constraint conversation_sessions_purpose_check
   check (session_purpose in ('rehearsal','prospect_conversation'));
 
-alter table public.conversation_sessions add constraint if not exists conversation_sessions_status_check
+alter table public.conversation_sessions add constraint conversation_sessions_status_check
   check (session_status in ('created','waiting_for_participant','active','completed','failed','cancelled'));
 
-alter table public.conversation_sessions add constraint if not exists conversation_sessions_input_method_check
+alter table public.conversation_sessions add constraint conversation_sessions_input_method_check
   check (input_method is null or input_method in ('voice_browser','voice_hosted','typed'));
 
 create index if not exists idx_conversation_sessions_owner_id on public.conversation_sessions(owner_id);
@@ -140,7 +140,7 @@ create table if not exists public.conversation_messages (
   created_at timestamptz not null default now()
 );
 
-alter table public.conversation_messages add constraint if not exists conversation_messages_speaker_role_check
+alter table public.conversation_messages add constraint conversation_messages_speaker_role_check
   check (speaker_role in ('agent','human','system_event'));
 
 create index if not exists idx_conversation_messages_owner_id on public.conversation_messages(owner_id);
@@ -165,13 +165,13 @@ create table if not exists public.session_reviews (
   updated_at timestamptz not null default now()
 );
 
-alter table public.session_reviews add constraint if not exists session_reviews_outcome_source_check
+alter table public.session_reviews add constraint session_reviews_outcome_source_check
   check (outcome_source is null or outcome_source in ('model_suggested','user_confirmed','user_corrected'));
 
-alter table public.session_reviews add constraint if not exists session_reviews_outcome_suggested_check
+alter table public.session_reviews add constraint session_reviews_outcome_suggested_check
   check (outcome_suggested is null or outcome_suggested in ('interested','follow_up','meeting_requested','not_interested','not_a_fit','unclear'));
 
-alter table public.session_reviews add constraint if not exists session_reviews_outcome_confirmed_check
+alter table public.session_reviews add constraint session_reviews_outcome_confirmed_check
   check (outcome_confirmed is null or outcome_confirmed in ('interested','follow_up','meeting_requested','not_interested','not_a_fit','unclear'));
 
 create index if not exists idx_session_reviews_owner_id on public.session_reviews(owner_id);
@@ -204,7 +204,8 @@ security invoker
 set search_path = public
 as $$
 begin
-  if old.session_status is distinct from 'created'
+  if (old.session_status is distinct from 'created'
+      or new.session_status is distinct from 'created')
      and old.session_purpose is distinct from new.session_purpose then
     raise exception 'session_purpose cannot change after the session has started';
   end if;

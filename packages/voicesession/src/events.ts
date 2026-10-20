@@ -1,4 +1,4 @@
-import type { SessionStatus } from './types'
+import type { SessionStatus } from './types.js'
 
 export type VoiceEvent =
   | { type: 'partial_transcript'; text: string }

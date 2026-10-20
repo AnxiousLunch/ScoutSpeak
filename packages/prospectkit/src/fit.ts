@@ -60,7 +60,7 @@ export function computeFit(
     label = 'excluded'
   } else if (unknowns.length > 0) {
     label = score >= 50 ? 'possible' : 'weak'
-  } else if (score >= 75) {
+  } else if (score >= 85) {
     label = 'strong'
   } else if (score >= 50) {
     label = 'possible'

@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select } from '@/components/ui/select'
 import { strategies, type StrategyKey } from '@/lib/strategies'
-import { createSession, type SessionPurpose } from '@/app/sessions/actions'
+import { createSession, updateSessionBrief, type SessionPurpose } from '@/app/sessions/actions'
 import { buildBrief } from '@/app/sessions/brief-actions'
 import type { SessionBrief } from '@/lib/brief'
 
@@ -32,6 +32,8 @@ export function SessionSetup({ leadId }: SessionSetupProps) {
   const [purpose, setPurpose] = useState<SessionPurpose>('rehearsal')
   const [objectionProfile, setObjectionProfile] = useState('')
   const [brief, setBrief] = useState<SessionBrief | null>(null)
+  const [savedBrief, setSavedBrief] = useState<SessionBrief | null>(null)
+  const [savedSessionId, setSavedSessionId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -47,27 +49,41 @@ export function SessionSetup({ leadId }: SessionSetupProps) {
     setBrief(result.brief)
   }
 
-  async function handleStart() {
+  async function handleSaveBrief() {
     if (!brief) {
       setError('Generate a brief first.')
       return
     }
     setBusy(true)
     setError(null)
-    const result = await createSession({
-      leadId,
-      purpose,
-      objective,
-      strategyKey,
-      objectionProfile,
-      brief,
-    })
+    const result = savedSessionId
+      ? await updateSessionBrief(savedSessionId, brief)
+      : await createSession({ leadId, purpose, objective, strategyKey, objectionProfile, brief })
     setBusy(false)
     if (!result.success) {
       setError(result.error)
       return
     }
-    router.push(`/sessions/${result.id}`)
+    if (!savedSessionId) {
+      if (!('id' in result) || typeof result.id !== 'string') {
+        setError('The session draft was not returned. Please retry.')
+        return
+      }
+      setSavedSessionId(result.id)
+    }
+    setSavedBrief(brief)
+  }
+
+  function handleStart() {
+    if (!savedSessionId) {
+      setError('Save the brief before starting the session.')
+      return
+    }
+    if (JSON.stringify(brief) !== JSON.stringify(savedBrief)) {
+      setError('Save your latest brief changes before starting.')
+      return
+    }
+    router.push(`/sessions/${savedSessionId}`)
   }
 
   return (
@@ -92,6 +108,7 @@ export function SessionSetup({ leadId }: SessionSetupProps) {
             id="objective"
             value={objective}
             onChange={(e) => setObjective(e.target.value)}
+            disabled={!!savedSessionId}
             placeholder="e.g. Qualify interest and book a 15-minute discovery call"
           />
         </div>
@@ -104,6 +121,7 @@ export function SessionSetup({ leadId }: SessionSetupProps) {
               value={strategyKey}
               options={strategyOptions}
               onChange={(value) => setStrategyKey(value as StrategyKey)}
+              disabled={!!savedSessionId}
             />
           </div>
           <div className="space-y-2">
@@ -113,6 +131,7 @@ export function SessionSetup({ leadId }: SessionSetupProps) {
               value={purpose}
               options={purposeOptions}
               onChange={(value) => setPurpose(value as SessionPurpose)}
+              disabled={!!savedSessionId}
             />
           </div>
         </div>
@@ -123,6 +142,7 @@ export function SessionSetup({ leadId }: SessionSetupProps) {
             id="objection_profile"
             value={objectionProfile}
             onChange={(e) => setObjectionProfile(e.target.value)}
+            disabled={!!savedSessionId}
             placeholder="e.g. Price-sensitive, already has a vendor"
           />
         </div>
@@ -175,9 +195,17 @@ export function SessionSetup({ leadId }: SessionSetupProps) {
                 ))}
               </ul>
             </div>
-            <Button onClick={handleStart} disabled={busy}>
-              {busy ? 'Starting…' : 'Start session'}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={handleSaveBrief} disabled={busy} variant="outline">
+                {busy ? 'Saving…' : savedSessionId ? 'Save brief' : 'Save brief'}
+              </Button>
+              <Button onClick={handleStart} disabled={busy || !savedSessionId || JSON.stringify(brief) !== JSON.stringify(savedBrief)}>
+                Start session
+              </Button>
+            </div>
+            {savedSessionId && (
+              <p className="text-xs text-muted-foreground">Brief saved. Purpose and strategy are locked for this session.</p>
+            )}
           </div>
         )}
       </CardContent>

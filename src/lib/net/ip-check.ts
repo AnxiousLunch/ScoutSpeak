@@ -45,6 +45,7 @@ function isBlockedIPv4(ip: string): boolean {
 function isBlockedIPv6(ip: string): boolean {
   const expanded = expandIPv6(ip)
   if (!expanded) return true
+  if (expanded === '0000:0000:0000:0000:0000:0000:0000:0000') return true
   if (expanded === '0000:0000:0000:0000:0000:0000:0000:0001') return true
   const first = expanded.slice(0, 4)
   const firstByte = parseInt(first, 16)

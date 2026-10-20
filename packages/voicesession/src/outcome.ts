@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { ModelClient, StoredMessage, StoredReview } from './types'
+import type { ModelClient, StoredMessage, StoredReview } from './types.js'
 
 const outcomeSchema = z.enum([
   'interested',
@@ -53,7 +53,8 @@ function formatTranscript(messages: StoredMessage[]): string {
 export async function extractOutcome(
   input: ExtractOutcomeInput
 ): Promise<ExtractOutcomeOutput> {
-  const validSeqs = new Set(input.messages.map((message) => message.sequence_number))
+  const messages = input.messages;
+  const validSeqs = new Set(messages.map((message) => message.sequence_number))
 
   const validatedSchema = reviewSchema.superRefine((data, ctx) => {
     for (const excerpt of data.excerpts) {
@@ -76,23 +77,30 @@ export async function extractOutcome(
     '',
     input.brief ? `BRIEF:\n${input.brief}\n` : '',
     'TRANSCRIPT:\n',
-    formatTranscript(input.messages),
+    formatTranscript(messages),
   ].join('\n')
 
-  try {
-    const result = await input.model.generateJSON<ReviewResult>({
-      system:
-        'You are a conversation reviewer. Return only valid JSON matching the requested schema.',
-      user: prompt,
-      schema: validatedSchema,
-      maxTokens: input.maxTokens ?? 1200,
-    })
-
-    return { review: result }
-  } catch (e) {
-    const message = e instanceof Error ? e.message : 'Outcome extraction failed'
-    return { review: null, error: message }
+  let validationError = ''
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const result = await input.model.generateJSON<ReviewResult>({
+        system:
+          'You are a conversation reviewer. Return only valid JSON matching the requested schema.',
+        user: attempt === 0 ? prompt : `${prompt}\n\nRepair your previous response. Validation errors: ${validationError}`,
+        schema: validatedSchema,
+        maxTokens: input.maxTokens ?? 1200,
+      })
+      const parsed = validatedSchema.safeParse(result)
+      if (!parsed.success) {
+        validationError = parsed.error.message
+        continue
+      }
+      return { review: parsed.data }
+    } catch (e) {
+      validationError = e instanceof Error ? e.message : 'Outcome extraction failed'
+    }
   }
+  return { review: null, error: validationError || 'Outcome extraction failed' }
 }
 
 export function toStoredReview(

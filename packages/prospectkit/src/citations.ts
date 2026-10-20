@@ -1,9 +1,9 @@
 import { z } from 'zod'
-import { enrichmentResultSchema } from './schema'
+import { enrichmentResultSchema } from './schema.js'
 
 export function makeEnrichmentSchema(allowedTags: Set<string>) {
   const tagSchema = z.string().refine((value) => allowedTags.has(value), {
-    message: `Evidence tags must be one of ${[...allowedTags].join(', ')}`,
+    message: `Evidence tags must be one of ${Array.from(allowedTags).join(', ')}`,
   })
 
   const citedItemSchema = z.object({

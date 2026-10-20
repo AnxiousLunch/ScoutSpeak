@@ -15,7 +15,7 @@ export type {
   NextTurnInput,
   NextTurnOutput,
   SummaryInput,
-} from './types'
+} from './types.js'
 
 export {
   isTerminal,
@@ -23,15 +23,15 @@ export {
   transition,
   type CompletedRequirements,
   type TransitionResult,
-} from './status'
+} from './status.js'
 
 export {
   buildSystemPrompt,
   openingTurn,
   nextTurn,
-} from './controller'
+} from './controller.js'
 
-export { maybeUpdateSummary, buildMessageWindow } from './summary'
+export { maybeUpdateSummary, buildMessageWindow } from './summary.js'
 
 export {
   extractOutcome,
@@ -39,9 +39,9 @@ export {
   type ReviewResult,
   type ExtractOutcomeInput,
   type ExtractOutcomeOutput,
-} from './outcome'
+} from './outcome.js'
 
-export { saveReview, type SaveReviewInput } from './logger'
+export { saveReview, type SaveReviewInput } from './logger.js'
 
 export {
   partialTranscript,
@@ -50,4 +50,4 @@ export {
   statusEvent,
   errorEvent,
   type VoiceEvent,
-} from './events'
+} from './events.js'

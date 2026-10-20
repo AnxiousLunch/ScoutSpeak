@@ -1,2 +1,0 @@
--- DEPRECATED: this duplicate enrichment migration is superseded by supabase/migrations/0003_enrichment.sql.
--- Canonical run order: 0001_schema.sql, 0002_rls.sql, 0003_enrichment.sql, then 0004_conversation_session_brief.sql.

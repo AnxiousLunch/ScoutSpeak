@@ -4,16 +4,17 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./status": "./src/status.ts",
-    "./controller": "./src/controller.ts",
-    "./summary": "./src/summary.ts",
-    "./outcome": "./src/outcome.ts",
-    "./logger": "./src/logger.ts",
-    "./events": "./src/events.ts",
-    "./types": "./src/types.ts"
+    ".": "./dist/index.js",
+    "./status": "./dist/status.js",
+    "./controller": "./dist/controller.js",
+    "./summary": "./dist/summary.js",
+    "./outcome": "./dist/outcome.js",
+    "./logger": "./dist/logger.js",
+    "./events": "./dist/events.js",
+    "./types": "./dist/types.js"
   },
   "scripts": {
+    "build": "tsc -p tsconfig.json",
     "test": "vitest run"
   },
   "dependencies": {

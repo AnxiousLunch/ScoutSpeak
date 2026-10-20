@@ -1,6 +1,6 @@
-import type { SessionStatus } from './types'
+import type { SessionStatus } from './types.js'
 
-const TERMINAL_STATES = new Set<SessionStatus>([
+const TERMINAL_STATES: ReadonlySet<SessionStatus> = new Set([
   'completed',
   'failed',
   'cancelled',

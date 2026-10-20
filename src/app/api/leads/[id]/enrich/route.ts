@@ -14,6 +14,19 @@ import { randomUUID } from 'crypto'
 
 const EXTRA_PATHS = ['/about', '/services', '/products', '/solutions']
 const MAX_OK_PAGES = 3
+const MAX_FETCHED_PAGES = 3
+
+function normalizeUrl(value: string): string {
+  try {
+    const url = new URL(value)
+    url.hash = ''
+    url.hostname = url.hostname.toLowerCase()
+    if (url.pathname.length > 1) url.pathname = url.pathname.replace(/\/+$/, '')
+    return url.toString().replace(/\/$/, '')
+  } catch {
+    return ''
+  }
+}
 
 interface EvidenceRow {
   id: string
@@ -170,7 +183,7 @@ export async function POST(
       let okCount = evidenceRows.filter((r) => r.access_status === 'ok').length
 
       for (const url of extraUrls) {
-        if (okCount >= MAX_OK_PAGES) break
+        if (okCount >= MAX_OK_PAGES || evidenceRows.length >= MAX_FETCHED_PAGES) break
         const row = await recordEvidence(url, async () => {
           const fetched = await safeFetchPage(url)
           const extracted = extractPage(fetched.text)
@@ -192,7 +205,7 @@ export async function POST(
     lead_id: lead.id,
     run_id: runId,
     source_url: row.source_url,
-    canonical_url: row.source_url,
+    canonical_url: normalizeUrl(row.source_url),
     page_title: row.page_title,
     excerpt: row.excerpt,
     observed_at: new Date().toISOString(),
@@ -290,6 +303,7 @@ export async function POST(
       fit_reason: fit?.reason ?? null,
       score_breakdown: {
         profile_version: profile.version,
+        canonical_url: canonicalUrl,
         summaryTags: result.summary.evidence,
         signalTags: result.observed_signal.evidence,
         needTags: result.inferred_need?.evidence ?? [],

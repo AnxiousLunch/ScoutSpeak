@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -20,6 +21,7 @@ import {
 } from '@/components/ui/dialog'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { SessionSetup } from '../SessionSetup'
+import type { Json } from '@/utils/supabase/database.types'
 
 interface Evidence {
   id: string
@@ -43,9 +45,9 @@ interface Lead {
   fit_label: string | null
   fit_reason: string | null
   research_status: string
-  score_breakdown: Record<string, unknown> | null
-  missing_fields: string[] | null
-  citations: Record<string, string> | null
+  score_breakdown: Json | null
+  missing_fields: Json | null
+  citations: Json | null
   enrichment_error: string | null
 }
 
@@ -59,6 +61,12 @@ type Claim = {
   label: 'Fact' | 'Inference' | 'Unknown'
   text: string
   tags: string[]
+}
+
+function jsonRecord(value: Json | null): Record<string, Json> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, Json>
+    : {}
 }
 
 function statusVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
@@ -77,27 +85,53 @@ function statusVariant(status: string): 'default' | 'secondary' | 'destructive' 
 }
 
 export function LeadDetailClient({ lead, evidence, error }: LeadDetailClientProps) {
+  const router = useRouter()
   const [selectedEvidenceId, setSelectedEvidenceId] = useState<string | null>(null)
+  const [enriching, setEnriching] = useState(false)
+  const [enrichError, setEnrichError] = useState<string | null>(null)
   const selectedEvidence = evidence.find((e) => e.id === selectedEvidenceId)
 
-  const citations = lead.citations ?? {}
+  async function handleEnrich() {
+    setEnriching(true)
+    setEnrichError(null)
+    try {
+      const response = await fetch(`/api/leads/${lead.id}/enrich`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force: true }),
+      })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        setEnrichError(result.message || result.error || 'Enrichment could not finish. Retry in a moment.')
+        return
+      }
+      router.refresh()
+    } catch (cause) {
+      setEnrichError(cause instanceof Error ? cause.message : 'Enrichment could not finish. Retry in a moment.')
+    } finally {
+      setEnriching(false)
+    }
+  }
+
+  const citations = jsonRecord(lead.citations)
   const evidenceById = new Map(evidence.map((e) => [e.id, e]))
 
   const claims: Claim[] = []
   if (lead.company_summary) {
-    claims.push({ label: 'Fact', text: lead.company_summary, tags: (lead.score_breakdown as { summaryTags?: string[] })?.summaryTags ?? [] })
+    claims.push({ label: 'Fact', text: lead.company_summary, tags: (jsonRecord(lead.score_breakdown).summaryTags as string[] | undefined) ?? [] })
   }
   if (lead.observed_signal) {
-    claims.push({ label: 'Fact', text: lead.observed_signal, tags: (lead.score_breakdown as { signalTags?: string[] })?.signalTags ?? [] })
+    claims.push({ label: 'Fact', text: lead.observed_signal, tags: (jsonRecord(lead.score_breakdown).signalTags as string[] | undefined) ?? [] })
   }
   if (lead.inferred_need) {
-    claims.push({ label: 'Inference', text: lead.inferred_need, tags: (lead.score_breakdown as { needTags?: string[] })?.needTags ?? [] })
+    claims.push({ label: 'Inference', text: lead.inferred_need, tags: (jsonRecord(lead.score_breakdown).needTags as string[] | undefined) ?? [] })
   }
   if (lead.personalization_hook) {
     claims.push({ label: 'Unknown', text: lead.personalization_hook, tags: [] })
   }
-  if (lead.missing_fields && lead.missing_fields.length > 0) {
+  if (Array.isArray(lead.missing_fields) && lead.missing_fields.length > 0) {
     for (const field of lead.missing_fields) {
+      if (typeof field !== 'string') continue
       claims.push({ label: 'Unknown', text: `Missing: ${field}`, tags: [] })
     }
   }
@@ -107,8 +141,8 @@ export function LeadDetailClient({ lead, evidence, error }: LeadDetailClientProp
         score: lead.fit_score,
         label: lead.fit_label,
         reason: lead.fit_reason,
-        unknowns: ((lead.score_breakdown as { unknowns?: string[] })?.unknowns) ?? [],
-        violated: ((lead.score_breakdown as { violated_constraints?: number[] })?.violated_constraints) ?? [],
+        unknowns: (jsonRecord(lead.score_breakdown).unknowns as string[] | undefined) ?? [],
+        violated: (jsonRecord(lead.score_breakdown).violated_constraints as number[] | undefined) ?? [],
       }
     : null
 
@@ -131,10 +165,22 @@ export function LeadDetailClient({ lead, evidence, error }: LeadDetailClientProp
             </a>
           )}
         </div>
-        <Badge variant={lead.research_status === 'verified' ? 'default' : lead.research_status === 'partial' ? 'secondary' : 'outline'}>
-          {lead.research_status}
-        </Badge>
+        <div className="flex items-center gap-3">
+          <Badge variant={lead.research_status === 'verified' ? 'default' : lead.research_status === 'partial' ? 'secondary' : 'outline'}>
+            {lead.research_status}
+          </Badge>
+          <Button onClick={handleEnrich} disabled={enriching} variant="outline">
+            {enriching ? 'Researching…' : lead.research_status === 'unverified' ? 'Retry research' : 'Refresh research'}
+          </Button>
+        </div>
       </div>
+
+      {enrichError && (
+        <Alert variant="destructive">
+          <AlertTitle>Research could not finish</AlertTitle>
+          <AlertDescription>{enrichError}</AlertDescription>
+        </Alert>
+      )}
 
       {error && (
         <Alert variant="destructive">
@@ -218,7 +264,8 @@ export function LeadDetailClient({ lead, evidence, error }: LeadDetailClientProp
                     {claim.tags.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1">
                         {claim.tags.map((tag) => {
-                          const uuid = citations[tag]
+                          const citationId = citations[tag]
+                          const uuid = typeof citationId === 'string' ? citationId : undefined
                           if (!uuid || !evidenceById.has(uuid)) return null
                           return (
                             <Button
