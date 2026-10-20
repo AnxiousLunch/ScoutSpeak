@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { SessionSetup } from '../SessionSetup'
 
 interface Evidence {
   id: string
@@ -276,6 +277,8 @@ export function LeadDetailClient({ lead, evidence, error }: LeadDetailClientProp
               </CardContent>
             </Card>
           )}
+
+          <SessionSetup leadId={lead.id} />
         </div>
       </div>
 

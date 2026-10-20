@@ -51,13 +51,13 @@ const DialogTrigger = ({
 }
 
 const DialogContent = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
+  HTMLDialogElement,
+  React.DialogHTMLAttributes<HTMLDialogElement>
 >(({ className, children, ...props }, ref) => {
   const { open, setOpen } = useDialog()
   const dialogRef = React.useRef<HTMLDialogElement>(null)
 
-  React.useImperativeHandle(ref, () => dialogRef.current as unknown as HTMLDivElement)
+  React.useImperativeHandle(ref, () => dialogRef.current as HTMLDialogElement)
 
   React.useEffect(() => {
     const dialog = dialogRef.current

@@ -99,11 +99,12 @@ export async function POST(
     return NextResponse.json({ error: 'profile_required' }, { status: 400 })
   }
 
-  const existingVersion =
-    (lead.score_breakdown as { profile_version?: number } | null)?.profile_version ?? null
+  const existingCacheKey = lead.score_breakdown as { profile_version?: number; canonical_url?: string } | null
+  const canonicalUrl = normalizeUrl(lead.website_url ?? '')
   if (
     lead.enriched_at &&
-    existingVersion === profile.version &&
+    existingCacheKey?.profile_version === profile.version &&
+    existingCacheKey?.canonical_url === canonicalUrl &&
     !body.force
   ) {
     return NextResponse.json({ skipped: true }, { status: 200 })

@@ -16,7 +16,7 @@ function message(seq: number, role: 'agent' | 'human', text: string): StoredMess
 
 const validReview = {
   summary: 'Good conversation.',
-  outcome_suggested: 'follow_up',
+  outcome_suggested: 'follow_up' as const,
   objection_tags: ['budget'],
   next_step: 'Schedule a demo.',
   quality_notes: {

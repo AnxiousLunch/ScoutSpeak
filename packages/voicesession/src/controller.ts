@@ -148,12 +148,15 @@ export async function nextTurn(input: NextTurnInput): Promise<NextTurnOutput> {
 
     const refreshedMessages = await input.store.listMessages(input.sessionId)
     const refreshedSession = await input.store.getSession(input.sessionId)
+    if (!refreshedSession) {
+      throw new Error('Session not found')
+    }
     const system = buildSystemPrompt({
-      brief: refreshedSession?.brief ? JSON.stringify(refreshedSession.brief) : undefined,
+      brief: refreshedSession.brief ? JSON.stringify(refreshedSession.brief) : undefined,
       strategy: strategyFromSession(refreshedSession),
-      purpose: refreshedSession?.session_purpose,
-      objectionProfile: refreshedSession?.objection_profile,
-      runningSummary: refreshedSession?.running_summary,
+      purpose: refreshedSession.session_purpose,
+      objectionProfile: refreshedSession.objection_profile,
+      runningSummary: refreshedSession.running_summary,
     })
     const window = buildMessageWindow(refreshedMessages, refreshedSession?.running_summary)
 

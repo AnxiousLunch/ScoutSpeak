@@ -132,6 +132,7 @@ export type Database = {
       }
       conversation_sessions: {
         Row: {
+          brief: Json | null
           business_profile_version: number | null
           campaign_id: string
           created_at: string
@@ -140,6 +141,8 @@ export type Database = {
           input_method: string | null
           lead_id: string
           model: string | null
+          objective: string | null
+          objection_profile: string | null
           owner_id: string
           participant_consent_at: string | null
           prompt_version: string | null
@@ -151,6 +154,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          brief?: Json | null
           business_profile_version?: number | null
           campaign_id: string
           created_at?: string
@@ -159,6 +163,8 @@ export type Database = {
           input_method?: string | null
           lead_id: string
           model?: string | null
+          objective?: string | null
+          objection_profile?: string | null
           owner_id?: string
           participant_consent_at?: string | null
           prompt_version?: string | null
@@ -170,6 +176,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          brief?: Json | null
           business_profile_version?: number | null
           campaign_id?: string
           created_at?: string
@@ -178,6 +185,8 @@ export type Database = {
           input_method?: string | null
           lead_id?: string
           model?: string | null
+          objective?: string | null
+          objection_profile?: string | null
           owner_id?: string
           participant_consent_at?: string | null
           prompt_version?: string | null

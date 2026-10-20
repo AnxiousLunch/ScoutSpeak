@@ -16,7 +16,7 @@ export default async function SessionPage({ params }: { params: { sessionId: str
 
   const { data: rawSession } = await supabase.from('conversation_sessions').select('id, lead_id, campaign_id, business_profile_version, session_status, session_purpose').eq('id', params.sessionId).eq('owner_id', user.id).single()
   const session = rawSession as unknown as SessionRecord | null
-  if (!session || session.session_purpose !== 'rehearsal') notFound()
+  if (!session || (session.session_purpose !== 'rehearsal' && session.session_purpose !== 'prospect_conversation')) notFound()
 
   const [{ data: rawLead }, { data: rawCampaign }, { data: rawMessages }, { data: evidence }] = await Promise.all([
     supabase.from('leads').select('company_name, research_status').eq('id', session.lead_id).eq('owner_id', user.id).single(),

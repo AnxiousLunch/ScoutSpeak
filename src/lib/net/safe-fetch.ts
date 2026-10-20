@@ -132,7 +132,7 @@ export async function safeFetchPage(url: string): Promise<FetchedPage> {
           Accept: 'text/html,application/xhtml+xml',
         },
         signal: controller.signal,
-      })
+      } as Dispatcher.RequestOptions)
     } catch (cause) {
       if (controller.signal.aborted) {
         throw new FetchBlockedError('timeout', 'Request timed out')
