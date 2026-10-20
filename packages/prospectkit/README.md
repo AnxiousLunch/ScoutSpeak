@@ -8,6 +8,9 @@ response, scores the fit, and reports how much trust the result deserves.
 Built during the **Devmarketplace x NED hackathon** by **Muhammad Umer Safee**
 and **[TEAMMATE NAMES]**.
 
+The teammate names are intentionally left as a team-maintained placeholder and
+must be filled in before public release.
+
 > **Fetcher note:** ProspectKit does not fetch web pages for you. Bring your own
 > fetcher. The ScoutSpeak app uses a safe-fetch implementation based on
 > **Devmarketplace gig 32**.
@@ -115,9 +118,9 @@ caller.
    The prompt tells the model not to follow instructions embedded in the text.
 2. **Citation validation** rejects any evidence tag that is not in the allowed
    set of page tags.
-3. **One repair** only. The supplied `schema` is passed to the model client's
-   `generateJSON`, so the client may attempt one self-correction. ProspectKit
-   does not add a second retry.
+3. **One repair** only. When the first structured response fails validation,
+   ProspectKit makes one more `generateJSON` call with the validation error.
+   A second invalid response returns `unverified` without canned content.
 4. **Observed signal must be cited**. A result that claims a signal without
    evidence is invalid.
 5. **Fit scoring** weights `offer_match`, `evidence_strength`, `constraint_fit`,

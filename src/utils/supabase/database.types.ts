@@ -146,6 +146,7 @@ export type Database = {
           owner_id: string
           participant_consent_at: string | null
           prompt_version: string | null
+          running_summary: string | null
           session_purpose: string
           session_status: string
           started_at: string | null
@@ -168,6 +169,7 @@ export type Database = {
           owner_id?: string
           participant_consent_at?: string | null
           prompt_version?: string | null
+          running_summary?: string | null
           session_purpose: string
           session_status?: string
           started_at?: string | null
@@ -190,6 +192,7 @@ export type Database = {
           owner_id?: string
           participant_consent_at?: string | null
           prompt_version?: string | null
+          running_summary?: string | null
           session_purpose?: string
           session_status?: string
           started_at?: string | null
@@ -406,6 +409,7 @@ export type Database = {
       session_reviews: {
         Row: {
           created_at: string
+          excerpts: Json | null
           id: string
           next_step: string | null
           note_text: string | null
@@ -421,6 +425,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          excerpts?: Json | null
           id?: string
           next_step?: string | null
           note_text?: string | null
@@ -436,6 +441,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          excerpts?: Json | null
           id?: string
           next_step?: string | null
           note_text?: string | null

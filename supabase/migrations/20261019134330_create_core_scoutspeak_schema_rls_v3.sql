@@ -1,2 +1,0 @@
--- DEPRECATED: this combined schema+RLS migration is superseded by the canonical chain:
--- 0001_schema.sql, 0002_rls.sql, 0003_enrichment.sql, then 0004_conversation_session_brief.sql.

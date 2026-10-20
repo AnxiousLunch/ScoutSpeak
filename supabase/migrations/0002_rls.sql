@@ -10,28 +10,28 @@
 alter table public.business_profiles enable row level security;
 revoke all on public.business_profiles from anon;
 
-create policy if not exists "business_profiles_owner_select"
+create policy "business_profiles_owner_select"
   on public.business_profiles
   for select to authenticated
   using (owner_id = auth.uid());
 
-create policy if not exists "business_profiles_owner_insert"
+create policy "business_profiles_owner_insert"
   on public.business_profiles
   for insert to authenticated
   with check (owner_id = auth.uid());
 
-create policy if not exists "business_profiles_owner_update"
+create policy "business_profiles_owner_update"
   on public.business_profiles
   for update to authenticated
   using (owner_id = auth.uid())
   with check (owner_id = auth.uid());
 
-create policy if not exists "business_profiles_owner_delete"
+create policy "business_profiles_owner_delete"
   on public.business_profiles
   for delete to authenticated
   using (owner_id = auth.uid());
 
-create policy if not exists "business_profiles_require_aal2"
+create policy "business_profiles_require_aal2"
   on public.business_profiles
   for all to authenticated
   as restrictive
@@ -44,12 +44,12 @@ create policy if not exists "business_profiles_require_aal2"
 alter table public.campaigns enable row level security;
 revoke all on public.campaigns from anon;
 
-create policy if not exists "campaigns_owner_select"
+create policy "campaigns_owner_select"
   on public.campaigns
   for select to authenticated
   using (owner_id = auth.uid());
 
-create policy if not exists "campaigns_owner_insert"
+create policy "campaigns_owner_insert"
   on public.campaigns
   for insert to authenticated
   with check (
@@ -60,7 +60,7 @@ create policy if not exists "campaigns_owner_insert"
     )
   );
 
-create policy if not exists "campaigns_owner_update"
+create policy "campaigns_owner_update"
   on public.campaigns
   for update to authenticated
   using (owner_id = auth.uid())
@@ -72,12 +72,12 @@ create policy if not exists "campaigns_owner_update"
     )
   );
 
-create policy if not exists "campaigns_owner_delete"
+create policy "campaigns_owner_delete"
   on public.campaigns
   for delete to authenticated
   using (owner_id = auth.uid());
 
-create policy if not exists "campaigns_require_aal2"
+create policy "campaigns_require_aal2"
   on public.campaigns
   for all to authenticated
   as restrictive
@@ -90,12 +90,12 @@ create policy if not exists "campaigns_require_aal2"
 alter table public.leads enable row level security;
 revoke all on public.leads from anon;
 
-create policy if not exists "leads_owner_select"
+create policy "leads_owner_select"
   on public.leads
   for select to authenticated
   using (owner_id = auth.uid());
 
-create policy if not exists "leads_owner_insert"
+create policy "leads_owner_insert"
   on public.leads
   for insert to authenticated
   with check (
@@ -106,7 +106,7 @@ create policy if not exists "leads_owner_insert"
     )
   );
 
-create policy if not exists "leads_owner_update"
+create policy "leads_owner_update"
   on public.leads
   for update to authenticated
   using (owner_id = auth.uid())
@@ -118,12 +118,12 @@ create policy if not exists "leads_owner_update"
     )
   );
 
-create policy if not exists "leads_owner_delete"
+create policy "leads_owner_delete"
   on public.leads
   for delete to authenticated
   using (owner_id = auth.uid());
 
-create policy if not exists "leads_require_aal2"
+create policy "leads_require_aal2"
   on public.leads
   for all to authenticated
   as restrictive
@@ -136,12 +136,12 @@ create policy if not exists "leads_require_aal2"
 alter table public.lead_evidence enable row level security;
 revoke all on public.lead_evidence from anon;
 
-create policy if not exists "lead_evidence_owner_select"
+create policy "lead_evidence_owner_select"
   on public.lead_evidence
   for select to authenticated
   using (owner_id = auth.uid());
 
-create policy if not exists "lead_evidence_owner_insert"
+create policy "lead_evidence_owner_insert"
   on public.lead_evidence
   for insert to authenticated
   with check (
@@ -152,7 +152,7 @@ create policy if not exists "lead_evidence_owner_insert"
     )
   );
 
-create policy if not exists "lead_evidence_owner_update"
+create policy "lead_evidence_owner_update"
   on public.lead_evidence
   for update to authenticated
   using (owner_id = auth.uid())
@@ -164,12 +164,12 @@ create policy if not exists "lead_evidence_owner_update"
     )
   );
 
-create policy if not exists "lead_evidence_owner_delete"
+create policy "lead_evidence_owner_delete"
   on public.lead_evidence
   for delete to authenticated
   using (owner_id = auth.uid());
 
-create policy if not exists "lead_evidence_require_aal2"
+create policy "lead_evidence_require_aal2"
   on public.lead_evidence
   for all to authenticated
   as restrictive
@@ -182,12 +182,12 @@ create policy if not exists "lead_evidence_require_aal2"
 alter table public.conversation_sessions enable row level security;
 revoke all on public.conversation_sessions from anon;
 
-create policy if not exists "conversation_sessions_owner_select"
+create policy "conversation_sessions_owner_select"
   on public.conversation_sessions
   for select to authenticated
   using (owner_id = auth.uid());
 
-create policy if not exists "conversation_sessions_owner_insert"
+create policy "conversation_sessions_owner_insert"
   on public.conversation_sessions
   for insert to authenticated
   with check (
@@ -202,7 +202,7 @@ create policy if not exists "conversation_sessions_owner_insert"
     )
   );
 
-create policy if not exists "conversation_sessions_owner_update"
+create policy "conversation_sessions_owner_update"
   on public.conversation_sessions
   for update to authenticated
   using (owner_id = auth.uid())
@@ -218,12 +218,12 @@ create policy if not exists "conversation_sessions_owner_update"
     )
   );
 
-create policy if not exists "conversation_sessions_owner_delete"
+create policy "conversation_sessions_owner_delete"
   on public.conversation_sessions
   for delete to authenticated
   using (owner_id = auth.uid());
 
-create policy if not exists "conversation_sessions_require_aal2"
+create policy "conversation_sessions_require_aal2"
   on public.conversation_sessions
   for all to authenticated
   as restrictive
@@ -237,12 +237,12 @@ create policy if not exists "conversation_sessions_require_aal2"
 alter table public.conversation_messages enable row level security;
 revoke all on public.conversation_messages from anon;
 
-create policy if not exists "conversation_messages_owner_select"
+create policy "conversation_messages_owner_select"
   on public.conversation_messages
   for select to authenticated
   using (owner_id = auth.uid());
 
-create policy if not exists "conversation_messages_owner_insert"
+create policy "conversation_messages_owner_insert"
   on public.conversation_messages
   for insert to authenticated
   with check (
@@ -253,7 +253,7 @@ create policy if not exists "conversation_messages_owner_insert"
     )
   );
 
-create policy if not exists "conversation_messages_require_aal2"
+create policy "conversation_messages_require_aal2"
   on public.conversation_messages
   for all to authenticated
   as restrictive
@@ -266,12 +266,12 @@ create policy if not exists "conversation_messages_require_aal2"
 alter table public.session_reviews enable row level security;
 revoke all on public.session_reviews from anon;
 
-create policy if not exists "session_reviews_owner_select"
+create policy "session_reviews_owner_select"
   on public.session_reviews
   for select to authenticated
   using (owner_id = auth.uid());
 
-create policy if not exists "session_reviews_owner_insert"
+create policy "session_reviews_owner_insert"
   on public.session_reviews
   for insert to authenticated
   with check (
@@ -282,7 +282,7 @@ create policy if not exists "session_reviews_owner_insert"
     )
   );
 
-create policy if not exists "session_reviews_owner_update"
+create policy "session_reviews_owner_update"
   on public.session_reviews
   for update to authenticated
   using (owner_id = auth.uid())
@@ -294,12 +294,12 @@ create policy if not exists "session_reviews_owner_update"
     )
   );
 
-create policy if not exists "session_reviews_owner_delete"
+create policy "session_reviews_owner_delete"
   on public.session_reviews
   for delete to authenticated
   using (owner_id = auth.uid());
 
-create policy if not exists "session_reviews_require_aal2"
+create policy "session_reviews_require_aal2"
   on public.session_reviews
   for all to authenticated
   as restrictive
@@ -313,12 +313,12 @@ create policy if not exists "session_reviews_require_aal2"
 alter table public.session_invites enable row level security;
 revoke all on public.session_invites from anon;
 
-create policy if not exists "session_invites_owner_select"
+create policy "session_invites_owner_select"
   on public.session_invites
   for select to authenticated
   using (owner_id = auth.uid());
 
-create policy if not exists "session_invites_owner_insert"
+create policy "session_invites_owner_insert"
   on public.session_invites
   for insert to authenticated
   with check (
@@ -329,7 +329,7 @@ create policy if not exists "session_invites_owner_insert"
     )
   );
 
-create policy if not exists "session_invites_owner_delete"
+create policy "session_invites_owner_delete"
   on public.session_invites
   for delete to authenticated
   using (
@@ -340,7 +340,7 @@ create policy if not exists "session_invites_owner_delete"
     )
   );
 
-create policy if not exists "session_invites_require_aal2"
+create policy "session_invites_require_aal2"
   on public.session_invites
   for all to authenticated
   as restrictive

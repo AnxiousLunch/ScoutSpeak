@@ -165,7 +165,7 @@ export function ReviewClient({ sessionId, leadName, purpose, messages, existingR
                     <option key={o} value={o}>{o.replace('_', ' ')}</option>
                   ))}
                 </select>
-                {suggested.outcome_suggested && (
+                {typeof suggested.outcome_suggested === 'string' && (
                   <p className="text-xs text-muted-foreground">
                     Suggested: {String(suggested.outcome_suggested).replace('_', ' ')}
                   </p>

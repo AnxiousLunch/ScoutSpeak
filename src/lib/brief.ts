@@ -54,18 +54,22 @@ export interface GenerateBriefInput {
     tone: string
     priority_questions: readonly string[]
     behaviours: readonly string[]
-    end_conditions: Array<{ id: string; description: string }>
+    end_conditions: readonly { id: string; description: string }[]
   }
 }
 
 function claimCheck(
   brief: SessionBrief,
   evidenceIds: Set<string>,
-  profileFieldSet: Set<string>
+  profileFields: ProfileFields
 ): string | null {
   for (const claim of brief.permitted_claims) {
     if (claim.source === 'provider_profile') {
-      if (!claim.source_id || !profileFieldSet.has(claim.source_id)) {
+      if (
+        !claim.source_id ||
+        !PROFILE_FIELDS.includes(claim.source_id as (typeof PROFILE_FIELDS)[number]) ||
+        !profileFields[claim.source_id as keyof ProfileFields]?.trim()
+      ) {
         return `Provider claim "${claim.claim}" does not trace to a known profile field.`
       }
       continue
@@ -134,7 +138,6 @@ export interface GenerateBriefOutput {
 
 export async function generateBrief(input: GenerateBriefInput): Promise<GenerateBriefOutput> {
   const evidenceIds = new Set(input.evidence.map((item) => item.id))
-  const profileFieldSet = new Set<string>(PROFILE_FIELDS as unknown as string[])
   const { system, user } = buildBriefPrompt(input)
   const model = getModelClient()
 
@@ -150,7 +153,7 @@ export async function generateBrief(input: GenerateBriefInput): Promise<Generate
         maxTokens: 1500,
       })
 
-      const checkError = claimCheck(parsed, evidenceIds, profileFieldSet)
+      const checkError = claimCheck(parsed, evidenceIds, input.profile)
       if (checkError) {
         lastError = checkError
         continue
