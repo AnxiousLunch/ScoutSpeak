@@ -59,6 +59,8 @@ interface Lead {
   research_status: string
   lead_status: string | null
   fit_score: number | null
+  fit_label: string | null
+  enriched_at: string | null
 }
 
 interface LeadsClientProps {
@@ -99,6 +101,31 @@ export function LeadsClient({ leads, campaignId, error }: LeadsClientProps) {
   const [csvError, setCsvError] = useState<string | null>(null)
   const [csvReport, setCsvReport] = useState<ReturnType<typeof buildImportReport> | null>(null)
   const [csvImporting, setCsvImporting] = useState(false)
+  const [enrichingId, setEnrichingId] = useState<string | null>(null)
+
+  async function handleEnrich(leadId: string, force = false) {
+    setEnrichingId(leadId)
+    try {
+      const res = await fetch(`/api/leads/${leadId}/enrich`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        notify(data.message || 'Enrichment failed. Please try again.', 'error')
+      } else if (data.skipped) {
+        notify('Lead is already enriched for the current profile version.', 'success')
+      } else {
+        notify(data.status === 'verified' ? 'Lead enriched.' : 'Lead enrichment complete.', 'success')
+      }
+    } catch (cause) {
+      notify(cause instanceof Error ? cause.message : 'Enrichment failed. Please try again.', 'error')
+    } finally {
+      setEnrichingId(null)
+      router.refresh()
+    }
+  }
 
   if (error) {
     return (
@@ -409,14 +436,19 @@ export function LeadsClient({ leads, campaignId, error }: LeadsClientProps) {
                 <TableHead>Website</TableHead>
                 <TableHead>Research</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Fit</TableHead>
-                  <TableHead className="text-right">Next step</TableHead>
+                <TableHead>Score</TableHead>
+                <TableHead>Label</TableHead>
+                <TableHead className="text-right">Next step</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {leads.map((lead) => (
                 <TableRow key={lead.id}>
-                  <TableCell className="font-medium">{lead.company_name}</TableCell>
+                  <TableCell className="font-medium">
+                    <Link href={`/leads/${lead.id}`} className="hover:underline">
+                      {lead.company_name}
+                    </Link>
+                  </TableCell>
                   <TableCell>
                     {lead.website_url ? (
                       <a
@@ -449,8 +481,29 @@ export function LeadsClient({ leads, campaignId, error }: LeadsClientProps) {
                       ? lead.fit_score
                       : '—'}
                   </TableCell>
+                  <TableCell>
+                    {lead.fit_label ? (
+                      <Badge variant={lead.fit_label === 'excluded' ? 'destructive' : 'secondary'}>
+                        {lead.fit_label}
+                      </Badge>
+                    ) : (
+                      '—'
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">
-                    <div className="lead-row-actions"><Button size="sm" onClick={() => handlePractice(lead.id)} disabled={isPending}>{isPending ? 'Opening…' : 'Practice'}</Button><Dialog
+                    <div className="lead-row-actions">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleEnrich(lead.id, !!lead.enriched_at)}
+                        disabled={enrichingId === lead.id || isPending}
+                      >
+                        {enrichingId === lead.id ? 'Enriching…' : lead.enriched_at ? 'Re-enrich' : 'Enrich'}
+                      </Button>
+                      <Button size="sm" onClick={() => handlePractice(lead.id)} disabled={isPending}>
+                        {isPending ? 'Opening…' : 'Practice'}
+                      </Button>
+                      <Dialog
                       open={deleteId === lead.id}
                       onOpenChange={(open) => setDeleteId(open ? lead.id : null)}
                     >

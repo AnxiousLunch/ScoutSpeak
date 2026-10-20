@@ -231,6 +231,7 @@ export type Database = {
           observed_at: string | null
           owner_id: string
           page_title: string | null
+          run_id: string | null
           source_url: string | null
           updated_at: string
         }
@@ -244,6 +245,7 @@ export type Database = {
           observed_at?: string | null
           owner_id?: string
           page_title?: string | null
+          run_id?: string | null
           source_url?: string | null
           updated_at?: string
         }
@@ -257,6 +259,7 @@ export type Database = {
           observed_at?: string | null
           owner_id?: string
           page_title?: string | null
+          run_id?: string | null
           source_url?: string | null
           updated_at?: string
         }
@@ -273,13 +276,19 @@ export type Database = {
       leads: {
         Row: {
           campaign_id: string
+          citations: Json | null
           company_name: string
           company_summary: string | null
           created_at: string
+          enriched_at: string | null
+          enrichment_error: string | null
+          fit_label: string | null
+          fit_reason: string | null
           fit_score: number | null
           id: string
           inferred_need: string | null
           lead_status: string | null
+          missing_fields: Json | null
           observed_signal: string | null
           owner_id: string
           personalization_hook: string | null
@@ -290,13 +299,19 @@ export type Database = {
         }
         Insert: {
           campaign_id: string
+          citations?: Json | null
           company_name: string
           company_summary?: string | null
           created_at?: string
+          enriched_at?: string | null
+          enrichment_error?: string | null
+          fit_label?: string | null
+          fit_reason?: string | null
           fit_score?: number | null
           id?: string
           inferred_need?: string | null
           lead_status?: string | null
+          missing_fields?: Json | null
           observed_signal?: string | null
           owner_id?: string
           personalization_hook?: string | null
@@ -307,13 +322,19 @@ export type Database = {
         }
         Update: {
           campaign_id?: string
+          citations?: Json | null
           company_name?: string
           company_summary?: string | null
           created_at?: string
+          enriched_at?: string | null
+          enrichment_error?: string | null
+          fit_label?: string | null
+          fit_reason?: string | null
           fit_score?: number | null
           id?: string
           inferred_need?: string | null
           lead_status?: string | null
+          missing_fields?: Json | null
           observed_signal?: string | null
           owner_id?: string
           personalization_hook?: string | null

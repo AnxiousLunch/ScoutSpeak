@@ -136,17 +136,23 @@ After a successful MFA challenge the session reaches AAL2 and the middleware all
 
 ## Database schema and RLS
 
-The core ScoutSpeak schema lives in two migration files (run them in order):
+The core ScoutSpeak schema lives in migration files (run them in order):
 
-1. `supabase/migrations/0001_schema.sql` — creates the eight tables from `SPEC.md`:
-   `business_profiles`, `campaigns`, `leads`, `lead_evidence`,
-   `conversation_sessions`, `conversation_messages`, `session_reviews`,
-   `session_invites`.
-2. `supabase/migrations/0002_rls.sql` — enables RLS, revokes anon access, adds
-   owner-based permissive policies, parent-ownership `WITH CHECK` constraints,
-   and a restrictive AAL2 policy on every table.
+1. `supabase/migrations/0001_schema.sql` — creates the eight tables from `SPEC.md`.
+2. `supabase/migrations/0002_rls.sql` — enables RLS, owner-based policies, and AAL2 enforcement.
+3. `supabase/migrations/0003_enrichment.sql` — adds enrichment columns to `leads` and `lead_evidence`.
 
 The existing counter migration is not modified.
+
+## Lead enrichment
+
+`packages/prospectkit/` holds the pure enrichment logic (schema, prompt, citation validation, fit scoring, and orchestration) with its own unit tests.
+
+`src/lib/net/safe-fetch.ts` fetches public pages with IP pinning, redirect re-validation, and blocklists. `src/lib/net/extract.ts` converts HTML to an excerpt.
+
+`POST /api/leads/[id]/enrich` fetches the lead URL plus up to two same-origin pages, stores `lead_evidence` rows, runs the model through `prospectkit`, and updates the lead. It maps `AiError` codes to HTTP 429/504/502 and never fabricates a successful result.
+
+`/leads` shows research status, fit score, and fit label, with per-row **Enrich** / **Re-enrich** buttons. `/leads/[id]` displays the evidence panel, source-backed claims with clickable citation chips, and the fit breakdown.
 
 ## Voice smoke test
 
@@ -184,6 +190,7 @@ npm run build      # Production build
 npm run start      # Start the production server
 npm run lint       # Run ESLint
 npm run typecheck  # Run TypeScript checks
+npm run test:unit  # Run vitest unit tests
 npm run test:isolation  # Run the two-account RLS/MFA isolation test
 ```
 

@@ -1,0 +1,26 @@
+{
+  "name": "prospectkit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts",
+    "./prompt": "./src/prompt.ts",
+    "./citations": "./src/citations.ts",
+    "./fit": "./src/fit.ts",
+    "./status": "./src/status.ts",
+    "./enrich": "./src/enrich.ts",
+    "./types": "./src/types.ts"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

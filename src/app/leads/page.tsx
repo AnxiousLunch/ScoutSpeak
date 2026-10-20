@@ -19,7 +19,7 @@ export default async function LeadsPage() {
         .limit(1),
       supabase
         .from('leads')
-        .select('id, company_name, website_url, research_status, lead_status, fit_score')
+        .select('id, company_name, website_url, research_status, lead_status, fit_score, fit_label, enriched_at')
         .order('created_at', { ascending: false }),
     ])
 
