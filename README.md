@@ -154,6 +154,16 @@ The existing counter migration is not modified.
 
 `/leads` shows research status, fit score, and fit label, with per-row **Enrich** / **Re-enrich** buttons. `/leads/[id]` displays the evidence panel, source-backed claims with clickable citation chips, and the fit breakdown.
 
+## Conversation strategies
+
+Versioned strategy configs live in `src/lib/strategies/` and are selected when starting a session:
+
+- `consultative` — asks at least two discovery questions before mentioning the offer (max 10 turns).
+- `concise` — uses at most two sentences per turn, one intro plus one qualifying question (max 6 turns).
+- `objection-handling` — acknowledges the stated concern first, answers only with supported information, then offers a low-pressure next step (max 8 turns).
+
+Use `getStrategy(key)` to look up a config by key and version. Unit tests cover shape, observable differences, and lookup behaviour.
+
 ## Voice smoke test
 
 `src/lib/voice/types.ts` defines the provider-independent `VoiceSessionAdapter` and normalised event stream (`partial`/`final` transcript, `turn`, `status`, `error`) from `SPEC.md` Section 7.

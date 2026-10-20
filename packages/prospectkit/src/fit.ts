@@ -1,4 +1,4 @@
-import type { Ratings } from './schema'
+import type { Ratings } from './schema.js'
 
 export interface FitWeights {
   offer_match?: number

@@ -20,7 +20,9 @@
     "paths": {
       "@/*": ["./src/*"],
       "prospectkit": ["./packages/prospectkit/src/index.ts"],
-      "prospectkit/*": ["./packages/prospectkit/src/*.ts"]
+      "prospectkit/*": ["./packages/prospectkit/src/*.ts"],
+      "voicesession": ["./packages/voicesession/src/index.ts"],
+      "voicesession/*": ["./packages/voicesession/src/*.ts"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
