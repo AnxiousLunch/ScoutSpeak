@@ -1,4 +1,4 @@
-import type { SessionStore, StoredReview } from './types'
+import type { SessionStore, StoredReview } from './types.js'
 
 export interface SaveReviewInput {
   store: SessionStore

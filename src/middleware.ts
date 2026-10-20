@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import type { SetAllCookies } from '@supabase/ssr'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { Database } from '@/utils/supabase/database.types'
 
 const PUBLIC_PAGES = [
@@ -32,13 +34,13 @@ export async function middleware(request: NextRequest) {
           value: cookie.value,
         }))
       },
-      setAll(cookiesToSet) {
+      setAll: ((cookiesToSet) => {
         cookiesToSet.forEach(({ name, value, options }) => {
           response.cookies.set(name, value, options)
         })
-      },
+      }) satisfies SetAllCookies,
     },
-  })
+  }) as unknown as SupabaseClient<Database>
 
   const {
     data: { session },

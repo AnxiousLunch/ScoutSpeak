@@ -1,4 +1,4 @@
-import type { SummaryInput, StoredMessage } from './types'
+import type { SummaryInput, StoredMessage } from './types.js'
 
 const WINDOW_SIZE = 6
 const DEFAULT_MAX_TOKENS = 120

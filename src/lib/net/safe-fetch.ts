@@ -93,7 +93,7 @@ async function readBody(
   let total = 0
 
   for await (const chunk of body) {
-    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as ArrayBufferView)
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array)
     total += buffer.length
     if (total > MAX_BYTES) {
       throw new FetchBlockedError('oversize', 'Response body exceeds 1 MB')
@@ -132,7 +132,7 @@ export async function safeFetchPage(url: string): Promise<FetchedPage> {
           Accept: 'text/html,application/xhtml+xml',
         },
         signal: controller.signal,
-      } as Dispatcher.RequestOptions)
+      } as unknown as Dispatcher.RequestOptions)
     } catch (cause) {
       if (controller.signal.aborted) {
         throw new FetchBlockedError('timeout', 'Request timed out')

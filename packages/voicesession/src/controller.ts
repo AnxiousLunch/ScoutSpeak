@@ -8,8 +8,8 @@ import type {
   StoredSession,
   StrategyConfig,
   SystemPromptInput,
-} from './types'
-import { buildMessageWindow, maybeUpdateSummary } from './summary'
+} from './types.js'
+import { buildMessageWindow, maybeUpdateSummary } from './summary.js'
 
 const DEFAULT_MAX_TOKENS = 120
 const STOP_PHRASES = [
@@ -67,12 +67,12 @@ function humanTurnCount(messages: StoredMessage[]): number {
 }
 
 function detectEndReason(
-  session: StoredSession,
+  session: StoredSession | null,
   messages: StoredMessage[]
 ): string | undefined {
   const humanCount = humanTurnCount(messages)
   const lastHuman = messages.findLast((message) => message.speaker_role === 'human')
-  const maxTurns = session.max_turns ?? 6
+  const maxTurns = session?.max_turns ?? 6
 
   if (lastHuman) {
     const lower = lastHuman.message_text?.toLowerCase() ?? ''
@@ -137,6 +137,15 @@ export async function nextTurn(input: NextTurnInput): Promise<NextTurnOutput> {
       input_method: input.inputMethod,
     })
     messages.push(humanMessage)
+  }
+
+  const ending = detectEndReason(session, messages)
+  if (ending) {
+    await input.store.updateSession(input.sessionId, {
+      session_status: 'completed',
+      ended_at: new Date().toISOString(),
+    })
+    return { agentText: '', ended: true, endReason: ending }
   }
 
   try {
