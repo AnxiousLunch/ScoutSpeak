@@ -21,13 +21,16 @@ const baseResult: EnrichmentResult = {
 }
 
 function fakeModel(values: EnrichmentResult[]): ModelClient {
-  let call = 0
   return {
     async generateJSON<T>({ schema }: GenerateJSONOpts<T>) {
-      const next = values[call++] ?? values[values.length - 1]
-      const parsed = schema.safeParse(next)
-      if (!parsed.success) throw new Error(parsed.error.message)
-      return parsed.data as T
+      let lastError = ''
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const next = values[Math.min(attempt, values.length - 1)]
+        const parsed = schema.safeParse(next)
+        if (parsed.success) return parsed.data as T
+        lastError = parsed.error.message
+      }
+      throw new Error(lastError)
     },
     async generateText() {
       return ''

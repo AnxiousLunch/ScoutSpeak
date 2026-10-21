@@ -53,6 +53,7 @@ function isBlockedIPv6(ip: string): boolean {
   if ((firstByte & 0xfe00) === 0xfc00) return true
   if ((firstByte & 0xffc0) === 0xfe80) return true
   if ((firstByte & 0xff00) === 0xff00) return true
+  if ((firstByte & 0xff00) === 0xff00) return true
   return false
 }
 

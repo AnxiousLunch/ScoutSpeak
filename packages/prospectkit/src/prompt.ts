@@ -54,7 +54,18 @@ Pages:
 
 ${pageBlocks || 'No pages were available for this lead.'}
 
-Evaluate the lead and return the JSON object.`
+Return ONLY a JSON object with EXACTLY this shape, no extra keys, no markdown code fences:
+{
+  "summary": { "text": "<1-2 sentence company summary>", "evidence": ["E1"] },
+  "observed_signal": { "text": "<one fact visible on the pages>", "evidence": ["E1"] },
+  "inferred_need": { "text": "<a possible need, worded as an inference>", "is_inference": true, "evidence": ["E1"] },
+  "opener": "<one question, at most 30 words>",
+  "missing_fields": ["<what you could not find>"],
+  "violated_constraints": [],
+  "ratings": { "offer_match": 0, "evidence_strength": 0, "constraint_fit": 0, "stated_need": 0 },
+  "rating_reasons": { "offer_match": "<short reason>", "evidence_strength": "<short reason>", "constraint_fit": "<short reason>", "stated_need": "<short reason>" }
+}
+Rules: inferred_need may be null if nothing can be inferred. violated_constraints lists the 1-based numbers of hard constraints the company violates (empty array if none). Each rating is an integer 0-5 or null if the pages do not support it. Every evidence array must be non-empty and use only the tags provided. missing_fields is an array (use [] if nothing is missing).`
 
   return { system, user }
 }
