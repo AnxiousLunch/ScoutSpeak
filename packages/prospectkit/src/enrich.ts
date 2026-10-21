@@ -23,6 +23,7 @@ export interface EnrichLeadOutput {
   result: EnrichmentResult | null
   fit: FitResult | null
   status: ResearchStatus
+  error?: string
 }
 
 function numberConstraints(constraints?: string | null): string[] {
@@ -46,21 +47,12 @@ export async function enrichLead(input: EnrichLeadInput): Promise<EnrichLeadOutp
   const schema = makeEnrichmentSchema(allowedTags)
 
   try {
-    let result: EnrichmentResult | undefined
-    let validationError = ''
-    for (let attempt = 0; attempt < 2 && !result; attempt++) {
-      try {
-        result = await input.model.generateJSON<EnrichmentResult>({
-          system,
-          user: attempt === 0 ? user : `${user}\n\nRepair the previous response to satisfy the schema. Validation errors: ${validationError}`,
-          schema,
-          maxTokens: 2500,
-        })
-      } catch (error) {
-        validationError = error instanceof Error ? error.message : String(error)
-      }
-    }
-    if (!result) return { result: null, fit: null, status: 'unverified' }
+    const result = await input.model.generateJSON<EnrichmentResult>({
+      system,
+      user,
+      schema,
+      maxTokens: 2500,
+    })
 
     const fit = computeFit(result.ratings, result.violated_constraints)
     const status = researchStatus({
@@ -70,7 +62,17 @@ export async function enrichLead(input: EnrichLeadInput): Promise<EnrichLeadOutp
     })
 
     return { result, fit, status }
-  } catch {
-    return { result: null, fit: null, status: 'unverified' }
+  } catch (error) {
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      ['rate_limit', 'timeout', 'provider_error', 'config'].includes(String(error.code))
+    ) {
+      throw error
+    }
+
+    const message = error instanceof Error ? error.message : String(error)
+    return { result: null, fit: null, status: 'unverified', error: message }
   }
 }

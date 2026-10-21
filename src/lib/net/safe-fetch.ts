@@ -69,8 +69,12 @@ function validateUrl(url: string): URL {
 function makePinnedAgent(address: string, family: 4 | 6): Agent {
   return new Agent({
     connect: {
-      lookup: (_hostname, _options, callback) => {
-        callback(null, address, family)
+      lookup: (_hostname, options, callback) => {
+        if ((options as { all?: boolean } | undefined)?.all) {
+          ;(callback as unknown as (e: null, a: { address: string; family: number }[]) => void)(null, [{ address, family }])
+        } else {
+          ;(callback as unknown as (e: null, a: string, f: number) => void)(null, address, family)
+        }
       },
     },
   })
@@ -93,7 +97,7 @@ async function readBody(
   let total = 0
 
   for await (const chunk of body) {
-    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array)
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as ArrayBufferView)
     total += buffer.length
     if (total > MAX_BYTES) {
       throw new FetchBlockedError('oversize', 'Response body exceeds 1 MB')
@@ -132,7 +136,7 @@ export async function safeFetchPage(url: string): Promise<FetchedPage> {
           Accept: 'text/html,application/xhtml+xml',
         },
         signal: controller.signal,
-      } as unknown as Dispatcher.RequestOptions)
+      })
     } catch (cause) {
       if (controller.signal.aborted) {
         throw new FetchBlockedError('timeout', 'Request timed out')

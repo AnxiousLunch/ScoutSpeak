@@ -14,23 +14,11 @@ import { randomUUID } from 'crypto'
 
 const EXTRA_PATHS = ['/about', '/services', '/products', '/solutions']
 const MAX_OK_PAGES = 3
-const MAX_FETCHED_PAGES = 3
-
-function normalizeUrl(value: string): string {
-  try {
-    const url = new URL(value)
-    url.hash = ''
-    url.hostname = url.hostname.toLowerCase()
-    if (url.pathname.length > 1) url.pathname = url.pathname.replace(/\/+$/, '')
-    return url.toString().replace(/\/$/, '')
-  } catch {
-    return ''
-  }
-}
 
 interface EvidenceRow {
   id: string
   source_url: string
+  canonical_url: string
   access_status: 'ok' | 'blocked' | 'error' | 'non_html'
   page_title: string | null
   excerpt: string | null
@@ -112,12 +100,11 @@ export async function POST(
     return NextResponse.json({ error: 'profile_required' }, { status: 400 })
   }
 
-  const existingCacheKey = lead.score_breakdown as { profile_version?: number; canonical_url?: string } | null
-  const canonicalUrl = normalizeUrl(lead.website_url ?? '')
+  const existingVersion =
+    (lead.score_breakdown as { profile_version?: number } | null)?.profile_version ?? null
   if (
     lead.enriched_at &&
-    existingCacheKey?.profile_version === profile.version &&
-    existingCacheKey?.canonical_url === canonicalUrl &&
+    existingVersion === profile.version &&
     !body.force
   ) {
     return NextResponse.json({ skipped: true }, { status: 200 })
@@ -136,6 +123,7 @@ export async function POST(
       const row: EvidenceRow = {
         id,
         source_url: sourceUrl,
+        canonical_url: fetched.finalUrl,
         access_status: 'ok',
         page_title: fetched.title || null,
         excerpt: fetched.text || null,
@@ -146,6 +134,7 @@ export async function POST(
       const row: EvidenceRow = {
         id,
         source_url: sourceUrl,
+        canonical_url: sourceUrl,
         access_status: pageStatusFromError(error),
         page_title: null,
         excerpt: pageErrorMessage(error),
@@ -183,7 +172,7 @@ export async function POST(
       let okCount = evidenceRows.filter((r) => r.access_status === 'ok').length
 
       for (const url of extraUrls) {
-        if (okCount >= MAX_OK_PAGES || evidenceRows.length >= MAX_FETCHED_PAGES) break
+        if (okCount >= MAX_OK_PAGES) break
         const row = await recordEvidence(url, async () => {
           const fetched = await safeFetchPage(url)
           const extracted = extractPage(fetched.text)
@@ -205,7 +194,7 @@ export async function POST(
     lead_id: lead.id,
     run_id: runId,
     source_url: row.source_url,
-    canonical_url: normalizeUrl(row.source_url),
+    canonical_url: row.canonical_url,
     page_title: row.page_title,
     excerpt: row.excerpt,
     observed_at: new Date().toISOString(),
@@ -253,6 +242,16 @@ export async function POST(
     })
   } catch (error) {
     if (error instanceof AiError) {
+      await supabase
+        .from('leads')
+        .update({
+          research_status: 'unverified',
+          enrichment_error: error.code,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', lead.id)
+        .eq('owner_id', user.id)
+
       return NextResponse.json(
         { error: error.code, message: error.message },
         { status: aiStatus(error.code) }
@@ -266,7 +265,7 @@ export async function POST(
       .from('leads')
       .update({
         research_status: 'unverified',
-        enrichment_error: modelError ?? 'unverified',
+        enrichment_error: enrichment?.error ?? modelError ?? 'unverified',
         updated_at: new Date().toISOString(),
       })
       .eq('id', lead.id)
@@ -303,7 +302,6 @@ export async function POST(
       fit_reason: fit?.reason ?? null,
       score_breakdown: {
         profile_version: profile.version,
-        canonical_url: canonicalUrl,
         summaryTags: result.summary.evidence,
         signalTags: result.observed_signal.evidence,
         needTags: result.inferred_need?.evidence ?? [],

@@ -9,15 +9,26 @@ export const ratingsSchema = z.object({
   stated_need: ratingDimensionSchema,
 })
 
+const evidenceTagSchema = z.enum(['E1', 'E2', 'E3'])
+
+function evidenceArraySchema() {
+  return z
+    .array(z.string().min(1))
+    .min(1)
+    .refine((tags) => tags.every((tag) => evidenceTagSchema.safeParse(tag).success), {
+      message: 'Evidence tags must be one of E1, E2, E3',
+    })
+}
+
 export const evidenceItemSchema = z.object({
   text: z.string().min(1),
-  evidence: z.array(z.string().min(1)),
+  evidence: evidenceArraySchema(),
 })
 
 export const inferredNeedSchema = z.object({
   text: z.string().min(1),
   is_inference: z.literal(true),
-  evidence: z.array(z.string().min(1)),
+  evidence: evidenceArraySchema(),
 })
 
 export const enrichmentResultSchema = z.object({
