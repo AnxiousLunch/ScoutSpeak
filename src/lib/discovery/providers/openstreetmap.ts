@@ -7,8 +7,8 @@ const OVERPASS_URLS = [
   'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
   'https://overpass-api.de/api/interpreter',
 ]
-const USER_AGENT = 'ScoutSpeak/1.0 (research; contact via app)'
-const REQUEST_TIMEOUT_MS = 15000
+const USER_AGENT = `ScoutSpeak/1.0 (+${process.env.DISCOVERY_CONTACT || 'https://github.com/AnxiousLunch/ScoutSpeak'})`
+const REQUEST_TIMEOUT_MS = 30000
 const NOMINATIM_RATE_MS = 1100
 
 interface NominatimResult {
@@ -88,7 +88,7 @@ function normalizeKeyword(keyword: string): string | null {
 
 function buildOverpassQuery(bbox: { minLat: number; minLon: number; maxLat: number; maxLon: number }, mapping: CategoryMapping, limit: number): string {
   const setClauses = mapping.tags.map((tag) => `nwr${tag}(${bbox.minLat},${bbox.minLon},${bbox.maxLat},${bbox.maxLon});`)
-  return `[out:json][timeout:15];
+  return `[out:json][timeout:25];
 (
 ${setClauses.join('\n')}
 );
@@ -116,7 +116,7 @@ class OpenStreetMapProvider implements DiscoveryProvider {
         signal: controller.signal,
         headers: {
           ...(init?.headers ?? {}),
-          Accept: 'application/json',
+          Accept: '*/*',
           'User-Agent': USER_AGENT,
         },
       })
@@ -167,19 +167,36 @@ class OpenStreetMapProvider implements DiscoveryProvider {
     const mapping = CATEGORY_MAP[category]
     const { bbox } = await this.resolveLocation(input.location)
 
-    const parsedBbox = {
-      minLat: Number(bbox[0]) - 0.01,
-      maxLat: Number(bbox[1]) + 0.01,
-      minLon: Number(bbox[2]) - 0.01,
-      maxLon: Number(bbox[3]) + 0.01,
-    }
+    // Nominatim returns the whole administrative area (Karachi Division is ~140 km across).
+    // Clamp wide areas to a window around their centre so Overpass can answer in time.
+    const MAX_SPAN = 0.3
+    const span = (a: number, b: number): [number, number] =>
+      b - a > MAX_SPAN ? [(a + b) / 2 - MAX_SPAN / 2, (a + b) / 2 + MAX_SPAN / 2] : [a - 0.01, b + 0.01]
+    const [minLat, maxLat] = span(Number(bbox[0]), Number(bbox[1]))
+    const [minLon, maxLon] = span(Number(bbox[2]), Number(bbox[3]))
+    const parsedBbox = { minLat, maxLat, minLon, maxLon }
 
     const query = buildOverpassQuery(parsedBbox, mapping, input.limit)
-    const overpass = await this.fetchJson<OverpassResponse>(OVERPASS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `data=${encodeURIComponent(query)}`,
-    })
+    let overpass: OverpassResponse | null = null
+    let firstError: unknown
+    const errors: string[] = []
+    for (const url of OVERPASS_URLS) {
+      try {
+        overpass = await this.fetchJson<OverpassResponse>(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `data=${encodeURIComponent(query)}`,
+        })
+        break
+      } catch (e) {
+        if (firstError === undefined) firstError = e
+        errors.push(`${new URL(url).hostname}: ${e instanceof Error ? e.message : String(e)}`)
+      }
+    }
+    if (!overpass) {
+      const code = firstError instanceof FetchBlockedError ? firstError.code : 'fetch_error'
+      throw new FetchBlockedError(code, errors.join(' | '))
+    }
 
     const elements = (overpass.elements ?? []).slice(0, input.limit)
     return elements.map((el) => this.toRecord(el, mapping.display, input.location))
