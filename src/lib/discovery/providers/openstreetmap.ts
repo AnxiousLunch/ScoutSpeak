@@ -2,7 +2,11 @@ import type { DiscoveryProvider, DiscoveryRecord, DiscoverySearchInput } from '.
 import { FetchBlockedError } from '@/lib/net/errors'
 
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search'
-const OVERPASS_URL = 'https://overpass-api.de/api/interpreter'
+const OVERPASS_URLS = [
+  'https://overpass.openstreetmap.fr/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+  'https://overpass-api.de/api/interpreter',
+]
 const USER_AGENT = 'ScoutSpeak/1.0 (research; contact via app)'
 const REQUEST_TIMEOUT_MS = 15000
 const NOMINATIM_RATE_MS = 1100
