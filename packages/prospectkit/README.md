@@ -8,6 +8,9 @@ response, scores the fit, and reports how much trust the result deserves.
 Built during the **Devmarketplace x NED hackathon** by **Muhammad Umer Safee**
 and **[TEAMMATE NAMES]**.
 
+> **Note:** the author placeholder `[TEAMMATE NAMES]` is intentionally left for
+> the team to fill in before publishing.
+
 > **Fetcher note:** ProspectKit does not fetch web pages for you. Bring your own
 > fetcher. The ScoutSpeak app uses a safe-fetch implementation based on
 > **Devmarketplace gig 32**.

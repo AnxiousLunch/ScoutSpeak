@@ -3,7 +3,7 @@ import {
   type EnrichmentResult,
   type ModelClient,
   type GenerateJSONOpts,
-} from 'prospectkit'
+} from '../src/index.js'
 
 const baseResult: EnrichmentResult = {
   summary: { text: 'Acme builds cloud accounting tools.', evidence: ['E1'] },

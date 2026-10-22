@@ -8,7 +8,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { speak, stopSpeaking, isBrowserSpeechSupported, createBrowserSpeechRecognition, type SpeechRecognitionType } from '@/lib/voice/browser-speech'
-import { type SessionBrief } from '@/lib/sessions/prompt'
 
 export interface SessionMessage {
   sequence_number: number
@@ -23,8 +22,8 @@ interface SessionRoomProps {
   evidenceCount: number
   campaignObjective: string | null
   sessionStatus: string
+  sessionPurpose: string
   participantConsentAt: string | null
-  brief: unknown
   initialMessages: SessionMessage[]
 }
 
@@ -40,8 +39,8 @@ export function SessionRoom({
   evidenceCount,
   campaignObjective,
   sessionStatus,
+  sessionPurpose,
   participantConsentAt,
-  brief,
   initialMessages,
 }: SessionRoomProps) {
   const [messages, setMessages] = useState(initialMessages)
@@ -55,14 +54,26 @@ export function SessionRoom({
   const [micOn, setMicOn] = useState(false)
   const [micError, setMicError] = useState<string | null>(null)
   const [micSupported, setMicSupported] = useState(true)
-  const recognitionRef = useRef<SpeechRecognitionType | null>(null)
-  const latestTextRef = useRef(text)
   const ended = status === 'completed' || status === 'cancelled' || status === 'failed'
-  const parsedBrief = parseBrief(brief)
+  const recognitionRef = useRef<SpeechRecognitionType | null>(null)
+  const micOnRef = useRef(micOn)
+  const endedRef = useRef(ended)
+  const mountedRef = useRef(true)
 
   useEffect(() => {
-    latestTextRef.current = text
-  }, [text])
+    micOnRef.current = micOn
+  }, [micOn])
+
+  useEffect(() => {
+    endedRef.current = ended
+  }, [ended])
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -127,19 +138,13 @@ export function SessionRoom({
   function speakMessage(textToSpeak: string) {
     if (!muted && textToSpeak && typeof window !== 'undefined') {
       stopRecognition()
-      speak(textToSpeak)
-      if (window.speechSynthesis.speaking) {
-        const checkDone = setInterval(() => {
-          if (!window.speechSynthesis.speaking) {
-            clearInterval(checkDone)
-            if (micOn && !ended) {
-              startMic()
-            }
+      speak(textToSpeak, {
+        onEnd: () => {
+          if (mountedRef.current && micOnRef.current && !endedRef.current) {
+            startMic()
           }
-        }, 250)
-      } else if (micOn && !ended) {
-        startMic()
-      }
+        },
+      })
     } else if (micOn && !ended) {
       startMic()
     }
@@ -224,7 +229,8 @@ export function SessionRoom({
           setMicOn(false)
         },
         onEnd: () => {
-          setMicOn(false)
+          // Recognition has stopped; the toggle button will reflect the state.
+          // If the mic was on, it is restarted after the AI finishes speaking.
         },
       })
       recognitionRef.current = recognition
@@ -263,7 +269,7 @@ export function SessionRoom({
 
   return (
     <div className="session-room">
-      <div className="session-room-heading"><div><p className="eyebrow">{PURPOSE_LABEL[sessionStatus] || 'CONVERSATION'} · CONSULTATIVE</p><h1>Practice with {leadName}</h1><p>The AI plays your sales representative. You play the prospect.</p></div><Link href="/sessions" className="back-link">← All conversations</Link></div>
+      <div className="session-room-heading"><div><p className="eyebrow">{PURPOSE_LABEL[sessionPurpose] || 'CONVERSATION'} · CONSULTATIVE</p><h1>Practice with {leadName}</h1><p>The AI plays your sales representative. You play the prospect.</p></div><Link href="/sessions" className="back-link">← All conversations</Link></div>
       <div className="session-context-strip"><span><b>Campaign goal</b>{campaignObjective || 'Understand the prospect and find a useful next step.'}</span><span><b>Lead context</b>{evidenceCount ? `${evidenceCount} saved source excerpt${evidenceCount === 1 ? '' : 's'}` : `${leadStatus} · no inspected evidence yet`}</span></div>
       {leadStatus !== 'verified' && <Alert className="context-alert"><AlertTitle>Limited lead context</AlertTitle><AlertDescription>This lead is {leadStatus} and has {evidenceCount ? 'only limited stored evidence' : 'no stored website evidence yet'}. The AI will avoid making claims about the company and ask open questions instead.</AlertDescription></Alert>}
       <Card className="room-card"><CardHeader><div className="room-title-row"><div><CardTitle>Conversation</CardTitle><CardDescription>{status === 'created' ? 'Confirm the disclosure, then start when you’re ready.' : status === 'active' ? 'Voice and typed replies are saved as you go. Nothing is recorded as audio.' : 'This conversation is complete and saved.'}</CardDescription></div><span className={`session-status-pill ${status}`}>{status.replaceAll('_', ' ')}</span></div></CardHeader>
@@ -314,14 +320,25 @@ export function SessionRoom({
               <form className="reply-form" onSubmit={handleSubmit}>
                 <Input value={text} onChange={(event) => setText(event.target.value)} placeholder="Reply as the prospect…" maxLength={500} disabled={busy} aria-label="Your reply as the prospect"/>
                 <Button type="submit" disabled={busy || !text.trim()}>{busy ? 'Waiting…' : 'Send reply'}</Button>
-                <Button type="button" variant="outline" onClick={toggleMic} disabled={busy || !micSupported} aria-label={micOn ? 'Turn microphone off' : 'Turn microphone on'}>
+                <Button type="button" variant="outline" onClick={toggleMic} disabled={busy || !micSupported || (typeof window !== 'undefined' && window.speechSynthesis.speaking)} aria-label={micOn ? 'Turn microphone off' : 'Turn microphone on'}>
                   {micOn ? '🎙️ On' : '🎤 Off'}
                 </Button>
                 <Button type="button" variant="outline" onClick={() => setMuted((m) => !m)} aria-label={muted ? 'Unmute AI voice' : 'Mute AI voice'}>
                   {muted ? '🔇' : '🔊'}
                 </Button>
               </form>
-              {micError && <Alert className="mt-2" variant="destructive"><AlertDescription>{micError}</AlertDescription></Alert>}
+              {micError && (
+            <Alert className="mt-2" variant="destructive">
+              <AlertDescription className="flex items-center justify-between gap-3">
+                <span>{micError}</span>
+                {micSupported && !ended && (
+                  <Button type="button" variant="outline" size="sm" onClick={startMic} disabled={busy || micOn}>
+                    Retry microphone
+                  </Button>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
               <div className="room-bottom-row"><span>{micOn ? 'Voice input active' : 'Typed input'} · transcript saved · no audio stored</span><Button variant="outline" size="sm" onClick={end} disabled={busy}>End conversation</Button></div>
             </>
           )}
@@ -332,18 +349,4 @@ export function SessionRoom({
   )
 }
 
-function parseBrief(brief: unknown): SessionBrief | null {
-  if (typeof brief !== 'object' || brief === null) return null
-  const candidate = brief as Record<string, unknown>
-  if (
-    typeof candidate.goal === 'string' &&
-    Array.isArray(candidate.priority_questions) &&
-    candidate.priority_questions.every((q) => typeof q === 'string') &&
-    Array.isArray(candidate.end_conditions) &&
-    candidate.end_conditions.every((c) => typeof c === 'string') &&
-    Array.isArray(candidate.permitted_claims)
-  ) {
-    return candidate as SessionBrief
-  }
-  return null
-}
+

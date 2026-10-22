@@ -11,7 +11,11 @@ type LeadRow = { id: string; company_name: string }
 
 export default async function SessionsPage() {
   const supabase = createClient()
-  const { data, error } = await supabase.from('conversation_sessions').select('id, lead_id, session_purpose, session_status, strategy_key, created_at').order('created_at', { ascending: false })
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return <div className="space-y-4"><h1 className="text-2xl font-bold tracking-tight">Conversations</h1><p className="text-sm text-muted-foreground">Sign in to view your conversations.</p></div>
+  }
+  const { data, error } = await supabase.from('conversation_sessions').select('id, lead_id, session_purpose, session_status, strategy_key, created_at').eq('owner_id', user.id).order('created_at', { ascending: false })
   const sessions = (data || []) as unknown as SessionRow[]
   const { data: leadData } = sessions.length ? await supabase.from('leads').select('id, company_name').in('id', sessions.map((session) => session.lead_id)) : { data: [] as LeadRow[] }
   const leadNames = new Map(((leadData || []) as unknown as LeadRow[]).map((lead) => [lead.id, lead.company_name]))
