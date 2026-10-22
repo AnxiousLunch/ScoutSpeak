@@ -42,7 +42,11 @@ export class OpenAICompatibleClient implements ModelClient {
       ],
       maxTokens: opts.maxTokens,
     })
-    return this.extractContent(res)
+    const content = this.extractContent(res)
+    if (res.choices?.[0]?.finish_reason === 'length') {
+      return trimToLastSentence(content)
+    }
+    return content
   }
 
   async generateJSON<T>(opts: GenerateJSONOpts<T>): Promise<T> {
@@ -166,4 +170,13 @@ function parseJSON(raw: string): unknown {
     const reason = e instanceof Error ? e.message : String(e)
     throw new AiError('invalid_output', `Failed to parse JSON: ${reason}`)
   }
+}
+
+function trimToLastSentence(text: string): string {
+  // Match a sentence-ending punctuation followed by optional closing quote and whitespace or end.
+  const match = text.match(/.*[.!?]["']?(?=\s|$)/s)
+  if (match) {
+    return match[0].trim()
+  }
+  return text
 }
