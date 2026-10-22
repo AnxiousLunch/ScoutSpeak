@@ -36,6 +36,15 @@ function numberConstraints(constraints?: string | null): string[] {
 }
 
 export async function enrichLead(input: EnrichLeadInput): Promise<EnrichLeadOutput> {
+  if (input.pages.length === 0) {
+    return {
+      result: null,
+      fit: null,
+      status: 'unverified',
+      error: 'No usable public pages were available to support lead enrichment.',
+    }
+  }
+
   const numberedConstraints = numberConstraints(input.profile.constraints)
   const { system, user } = buildEnrichmentPrompt(
     input.profile,

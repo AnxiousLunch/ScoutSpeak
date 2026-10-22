@@ -52,6 +52,20 @@ const pages = [
 const lead = { company_name: 'Acme', website_url: 'https://acme.example/' }
 
 describe('enrichLead', () => {
+  it('does not ask the model to cite evidence when no pages are available', async () => {
+    const model = fakeModel([])
+    const output = await enrichLead({
+      model,
+      profile,
+      lead,
+      pages: [],
+    })
+
+    expect(output.status).toBe('unverified')
+    expect(output.result).toBeNull()
+    expect(output.error).toContain('No usable public pages')
+  })
+
   it('returns a valid result and fit for good model output', async () => {
     const out = await enrichLead({ model: fakeModel([baseResult]), profile, lead, pages })
     expect(out.status).toBe('partial')

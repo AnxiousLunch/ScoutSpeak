@@ -111,7 +111,7 @@ describe('POST /api/leads/[id]/enrich citation identity', () => {
     const res = await POST(makeRequest('lead-1', { force: true }), { params: { id: 'lead-1' } })
     expect(res.status).toBe(200)
 
-    expect(insertedRows).toHaveLength(1)
+    expect(insertedRows).toHaveLength(3)
     expect((insertedRows[0] as { id?: string }).id).toBe(evidenceId)
 
     expect(updatePayload).not.toBeNull()

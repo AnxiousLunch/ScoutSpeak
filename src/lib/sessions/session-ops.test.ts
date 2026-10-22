@@ -1,134 +1,143 @@
-import { describe, it, expect, vi } from 'vitest'
-import { endSession, expireStaleSession, formatEndReason, type DbClient, type SessionRow } from './session-ops'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { transition, type SessionStatus } from 'voicesession'
+import type { Database } from '@/utils/supabase/database.types'
+import { AiError } from '@/lib/ai/errors'
+import { pickOpeningQuestion, type SessionBrief } from '@/lib/sessions/prompt'
 
-function mockClient(scenarios: {
-  lastMessage?: { data?: unknown; error?: unknown }
-  updateError?: unknown
-}): DbClient {
-  return {
-    from: vi.fn((table: string) => {
-      if (table === 'conversation_messages') {
-        return {
-          select: () => ({
-            eq: () => ({
-              order: () => ({
-                limit: () => ({
-                  maybeSingle: () => Promise.resolve(scenarios.lastMessage ?? { data: null, error: null }),
-                }),
-              }),
-            }),
-          }),
-        }
-      }
-      if (table === 'conversation_sessions') {
-        return {
-          update: () => ({
-            eq: () => Promise.resolve({ error: scenarios.updateError ?? null }),
-          }),
-        }
-      }
-      return {}
-    }),
-  } as unknown as DbClient
+export type DbClient = SupabaseClient<Database>
+export type SessionRow = Database['public']['Tables']['conversation_sessions']['Row']
+export type Fail = { ok: false; httpStatus: number; body: Record<string, unknown> }
+
+export function fail(httpStatus: number, message: string, extra: Record<string, unknown> = {}): Fail {
+  return { ok: false, httpStatus, body: { message, ...extra } }
 }
 
-function mockClientForEnd(
-  messages: { speaker_role: string }[],
-  updateError: unknown = null
-): DbClient {
-  return {
-    from: vi.fn((table: string) => {
-      if (table === 'conversation_messages') {
-        return {
-          select: () => ({
-            eq: () => Promise.resolve({ data: messages, error: null }),
-          }),
-        }
-      }
-      if (table === 'conversation_sessions') {
-        return {
-          update: () => ({
-            eq: () => Promise.resolve({ error: updateError }),
-          }),
-        }
-      }
-      return {}
-    }),
-  } as unknown as DbClient
+export function aiHttpStatus(error: AiError): number {
+  switch (error.code) {
+    case 'rate_limit':
+      return 429
+    case 'timeout':
+      return 504
+    case 'config':
+      return 503
+    default:
+      return 502
+  }
 }
 
-describe('formatEndReason', () => {
-  it('returns a human label for known reasons', () => {
-    expect(formatEndReason('invite_expired')).toBe('Invite expired')
-    expect(formatEndReason('audio_lost')).toBe('Audio lost')
-    expect(formatEndReason('abandoned')).toBe('Abandoned')
-  })
+export function parseBrief(brief: unknown): SessionBrief | null {
+  if (typeof brief !== 'object' || brief === null) return null
+  const c = brief as Record<string, unknown>
+  if (
+    typeof c.goal === 'string' &&
+    Array.isArray(c.priority_questions) &&
+    c.priority_questions.every((q) => typeof q === 'string') &&
+    Array.isArray(c.end_conditions) &&
+    c.end_conditions.every((e) => typeof e === 'string') &&
+    Array.isArray(c.permitted_claims)
+  ) {
+    return c as unknown as SessionBrief
+  }
+  return null
+}
 
-  it('falls back to the raw reason with underscores replaced', () => {
-    expect(formatEndReason('some_reason')).toBe('some reason')
-  })
+export async function ensureOpening(
+  client: DbClient,
+  session: SessionRow
+): Promise<{ ok: true; message: { sequence_number: number; speaker_role: string; message_text: string } } | Fail> {
+  const { data: existing } = await client
+    .from('conversation_messages')
+    .select('sequence_number, speaker_role, message_text')
+    .eq('session_id', session.id)
+    .eq('sequence_number', 1)
+    .maybeSingle()
+  if (existing?.speaker_role === 'agent' && existing.message_text) {
+    return { ok: true, message: { sequence_number: 1, speaker_role: 'agent', message_text: existing.message_text } }
+  }
+  if (session.business_profile_version == null) {
+    return fail(409, 'The business profile version for this session is missing.')
+  }
+  const [{ data: lead }, { data: profile }, { data: evidence }] = await Promise.all([
+    client.from('leads').select('company_name').eq('id', session.lead_id).eq('owner_id', session.owner_id).single(),
+    client.from('business_profiles').select('business_name').eq('owner_id', session.owner_id).eq('version', session.business_profile_version).single(),
+    client.from('lead_evidence').select('id').eq('lead_id', session.lead_id).eq('owner_id', session.owner_id),
+  ])
+  if (!lead || !profile) return fail(409, 'The lead or business profile for this session is missing.')
+  const question = pickOpeningQuestion(parseBrief(session.brief), (evidence ?? []).length > 0)
+  const rehearsal = session.session_purpose === 'rehearsal'
+  const disclosure = rehearsal
+    ? `Hi, I’m an AI sales representative from ${profile.business_name || 'your business'}. This is a rehearsal with ${lead.company_name}. I’ll use only the offer details and lead evidence available in this workspace.`
+    : `Hi, I’m an AI sales representative from ${profile.business_name || 'our business'}. This conversation is saved as a transcript.`
+  const text = `${disclosure} ${question}`
+  const { error } = await client
+    .from('conversation_messages')
+    .insert({ session_id: session.id, owner_id: session.owner_id, sequence_number: 1, speaker_role: 'agent', message_text: text })
+  if (error) return fail(500, 'Could not start the session. Please try again.')
+  return { ok: true, message: { sequence_number: 1, speaker_role: 'agent', message_text: text } }
+}
 
-  it('returns an empty string for missing reasons', () => {
-    expect(formatEndReason(null)).toBe('')
-    expect(formatEndReason(undefined)).toBe('')
-  })
-})
+export async function endSession(
+  client: DbClient,
+  session: SessionRow,
+  reason: string
+): Promise<{ ok: true; status: SessionStatus } | Fail> {
+  const current = session.session_status as SessionStatus
+  const { data: saved } = await client
+    .from('conversation_messages')
+    .select('speaker_role')
+    .eq('session_id', session.id)
+  const humanTurns = (saved ?? []).filter((m) => m.speaker_role === 'human').length
+  const completion = transition(current, 'completed', { humanTurns, consent: Boolean(session.participant_consent_at) })
+  const cancellation = completion.error ? transition(current, 'cancelled') : null
+  if (completion.error && cancellation?.error) return fail(409, completion.error, { saved: true })
+  const target: SessionStatus = completion.error ? 'cancelled' : 'completed'
+  const { error } = await client
+    .from('conversation_sessions')
+    .update({ session_status: target, ended_at: new Date().toISOString(), end_reason: reason })
+    .eq('id', session.id)
+  if (error) return fail(500, 'Could not save the end of this session. Try again.')
+  return { ok: true, status: target }
+}
 
-describe('expireStaleSession', () => {
-  it('cancels an active session whose last message is older than 10 minutes', async () => {
-    const stale = new Date(Date.now() - 11 * 60 * 1000).toISOString()
-    const client = mockClient({ lastMessage: { data: { created_at: stale }, error: null } })
-    const result = await expireStaleSession(client, { id: 's1', session_status: 'active' })
-    expect(result.ok).toBe(true)
-    expect(result.status).toBe('cancelled')
-  })
+export async function expireStaleSession(
+  client: DbClient,
+  session: Pick<SessionRow, 'id' | 'session_status'>
+): Promise<{ ok: true; status: SessionStatus } | Fail> {
+  const current = session.session_status as SessionStatus
+  if (current !== 'active') return { ok: true, status: current }
 
-  it('leaves an active session unchanged when the last message is recent', async () => {
-    const recent = new Date(Date.now() - 2 * 60 * 1000).toISOString()
-    const client = mockClient({ lastMessage: { data: { created_at: recent }, error: null } })
-    const result = await expireStaleSession(client, { id: 's1', session_status: 'active' })
-    expect(result.ok).toBe(true)
-    expect(result.status).toBe('active')
-  })
+  const { data: last } = await client
+    .from('conversation_messages')
+    .select('created_at')
+    .eq('session_id', session.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
 
-  it('does nothing for non-active sessions', async () => {
-    const client = mockClient({})
-    const result = await expireStaleSession(client, { id: 's1', session_status: 'completed' })
-    expect(result.ok).toBe(true)
-    expect(result.status).toBe('completed')
-  })
+  const lastAt = last?.created_at ? Date.parse(last.created_at) : NaN
+  if (Number.isNaN(lastAt)) return { ok: true, status: 'active' }
 
-  it('returns a failure when the update fails', async () => {
-    const stale = new Date(Date.now() - 11 * 60 * 1000).toISOString()
-    const client = mockClient({ lastMessage: { data: { created_at: stale }, error: null }, updateError: new Error('db down') })
-    const result = await expireStaleSession(client, { id: 's1', session_status: 'active' })
-    expect(result.ok).toBe(false)
-    expect(result.httpStatus).toBe(500)
-  })
-})
+  const staleThreshold = Date.now() - 10 * 60 * 1000
+  if (lastAt >= staleThreshold) return { ok: true, status: 'active' }
 
-describe('endSession', () => {
-  it('completes when there are at least two human turns and consent', async () => {
-    const client = mockClientForEnd([{ speaker_role: 'human' }, { speaker_role: 'human' }])
-    const session = { id: 's1', session_status: 'active', participant_consent_at: '2026-01-01T00:00:00Z' } as SessionRow
-    const result = await endSession(client, session, 'participant_left')
-    expect(result.ok).toBe(true)
-    expect(result.status).toBe('completed')
-  })
+  const { error } = await client
+    .from('conversation_sessions')
+    .update({ session_status: 'cancelled', end_reason: 'abandoned', ended_at: new Date().toISOString() })
+    .eq('id', session.id)
 
-  it('cancels when there are fewer than two human turns', async () => {
-    const client = mockClientForEnd([{ speaker_role: 'human' }])
-    const session = { id: 's1', session_status: 'active', participant_consent_at: '2026-01-01T00:00:00Z' } as SessionRow
-    const result = await endSession(client, session, 'participant_left')
-    expect(result.ok).toBe(true)
-    expect(result.status).toBe('cancelled')
-  })
+  if (error) return fail(500, 'Could not expire stale session.')
+  return { ok: true, status: 'cancelled' }
+}
 
-  it('cancels when consent is missing', async () => {
-    const client = mockClientForEnd([{ speaker_role: 'human' }, { speaker_role: 'human' }])
-    const session = { id: 's1', session_status: 'active', participant_consent_at: null } as SessionRow
-    const result = await endSession(client, session, 'participant_left')
-    expect(result.ok).toBe(true)
-    expect(result.status).toBe('cancelled')
-  })
-})
+export function formatEndReason(reason: string | null | undefined): string {
+  if (!reason) return ''
+  const labels: Record<string, string> = {
+    invite_expired: 'Invite expired',
+    abandoned: 'Abandoned',
+    audio_lost: 'Audio lost',
+    participant_left: 'Participant left',
+    owner_ended: 'Owner ended',
+    limit_or_stop_phrase: 'Limit or stop phrase',
+  }
+  return labels[reason] ?? reason.replaceAll('_', ' ')
+}

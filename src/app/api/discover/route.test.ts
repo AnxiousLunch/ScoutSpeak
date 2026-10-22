@@ -3,16 +3,16 @@ import { NextRequest } from 'next/server'
 import { POST } from './route'
 
 vi.mock('@/utils/supabase/server', () => ({ createClient: vi.fn() }))
+const { providerSearch } = vi.hoisted(() => ({ providerSearch: vi.fn() }))
 vi.mock('@/lib/discovery', () => ({
   getDiscoveryProvider: vi.fn(() => ({
     name: 'test-provider',
     attribution: 'Test attribution',
-    search: vi.fn(),
+    search: providerSearch,
   })),
 }))
 
 import { createClient } from '@/utils/supabase/server'
-import { getDiscoveryProvider } from '@/lib/discovery'
 
 function makeRequest(body: unknown): NextRequest {
   return new NextRequest('http://localhost/api/discover', {
@@ -60,14 +60,14 @@ describe('POST /api/discover', () => {
       from: vi.fn(),
     } as never)
 
-    const res = await POST(makeRequest({ campaignId: 'campaign-1', keyword: 'accounting', location: 'Karachi' }))
+    const res = await POST(makeRequest({ campaignId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', keyword: 'accounting', location: 'Karachi' }))
     expect(res.status).toBe(401)
   })
 
   it('requires AAL2', async () => {
     vi.mocked(createClient).mockReturnValue(mockClient('found', 'aal1') as never)
 
-    const res = await POST(makeRequest({ campaignId: 'campaign-1', keyword: 'accounting', location: 'Karachi' }))
+    const res = await POST(makeRequest({ campaignId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', keyword: 'accounting', location: 'Karachi' }))
     expect(res.status).toBe(403)
   })
 
@@ -81,17 +81,17 @@ describe('POST /api/discover', () => {
   it('rejects a campaign owned by another user', async () => {
     vi.mocked(createClient).mockReturnValue(mockClient('not_found') as never)
 
-    const res = await POST(makeRequest({ campaignId: 'campaign-1', keyword: 'accounting', location: 'Karachi' }))
+    const res = await POST(makeRequest({ campaignId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', keyword: 'accounting', location: 'Karachi' }))
     expect(res.status).toBe(404)
   })
 
   it('returns discovery results for a valid request', async () => {
     vi.mocked(createClient).mockReturnValue(mockClient() as never)
-    vi.mocked(getDiscoveryProvider)().search.mockResolvedValue([
+    providerSearch.mockResolvedValue([
       { providerId: 'p1', name: 'A', category: 'Accountant', address: null, latitude: null, longitude: null, websiteUrl: null, phone: null, source: 'test', attribution: {} },
     ])
 
-    const res = await POST(makeRequest({ campaignId: 'campaign-1', keyword: 'accounting', location: 'Karachi' }))
+    const res = await POST(makeRequest({ campaignId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', keyword: 'accounting', location: 'Karachi' }))
     const body = await res.json()
 
     expect(res.status).toBe(200)
@@ -101,17 +101,17 @@ describe('POST /api/discover', () => {
 
   it('caps the result limit', async () => {
     vi.mocked(createClient).mockReturnValue(mockClient() as never)
-    vi.mocked(getDiscoveryProvider)().search.mockResolvedValue([])
+    providerSearch.mockResolvedValue([])
 
-    const res = await POST(makeRequest({ campaignId: 'campaign-1', keyword: 'accounting', location: 'Karachi', limit: 100 }))
+    const res = await POST(makeRequest({ campaignId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', keyword: 'accounting', location: 'Karachi', limit: 100 }))
     expect(res.status).toBe(400)
   })
 
   it('returns a recoverable error when the provider fails', async () => {
     vi.mocked(createClient).mockReturnValue(mockClient() as never)
-    vi.mocked(getDiscoveryProvider)().search.mockRejectedValue(new Error('provider down'))
+    providerSearch.mockRejectedValue(new Error('provider down'))
 
-    const res = await POST(makeRequest({ campaignId: 'campaign-1', keyword: 'accounting', location: 'Karachi' }))
+    const res = await POST(makeRequest({ campaignId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', keyword: 'accounting', location: 'Karachi' }))
     const body = await res.json()
 
     expect(res.status).toBe(502)

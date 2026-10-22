@@ -19,7 +19,7 @@ interface EvidenceRow {
   id: string
   source_url: string
   canonical_url: string
-  access_status: 'ok' | 'blocked' | 'error' | 'non_html'
+  access_status: 'ok' | 'blocked' | 'error' | 'non_html' | 'not_found' | 'rate_limit' | 'server_error'
   page_title: string | null
   excerpt: string | null
 }
@@ -279,7 +279,11 @@ export async function POST(
       return NextResponse.json({ error: 'lead_update_failed', message: updateError.message }, { status: 500 })
     }
 
-    return NextResponse.json({ result: null, status: 'unverified' }, { status: 200 })
+    return NextResponse.json({
+      result: null,
+      status: 'unverified',
+      message: enrichment?.error ?? modelError ?? 'No usable public pages were available to support lead enrichment.',
+    }, { status: 200 })
   }
 
   const { result, fit, status } = enrichment

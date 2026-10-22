@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/utils/supabase/server'
 import type { DiscoveryRecord } from '@/lib/discovery'
-import type { Database } from '@/utils/supabase/database.types'
+import type { Database, Json } from '@/utils/supabase/database.types'
 
 type SupabaseClient = ReturnType<typeof createClient>
 type LeadInsert = Database['public']['Tables']['leads']['Insert']
@@ -125,7 +125,7 @@ async function importRecords(
       research_status: 'unverified',
       provider_id: record.providerId,
       discovery_source: record.source,
-      source_attribution: record.attribution,
+      source_attribution: record.attribution as Json,
       discovery_query: {},
       dedup_key: key,
     })

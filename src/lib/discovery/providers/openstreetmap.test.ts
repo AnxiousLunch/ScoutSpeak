@@ -6,19 +6,19 @@ vi.stubGlobal('fetch', vi.fn())
 const mockedFetch = vi.mocked(fetch)
 
 function nominatimResponse(bbox: [string, string, string, string]) {
-  return Promise.resolve({
+  return {
     ok: true,
     status: 200,
     json: () => Promise.resolve([{ place_id: 1, boundingbox: bbox, display_name: 'Karachi, Pakistan', lat: '24.86', lon: '67.0' }]),
-  } as Response)
+  } as Response
 }
 
 function overpassResponse(elements: unknown[]) {
-  return Promise.resolve({
+  return {
     ok: true,
     status: 200,
     json: () => Promise.resolve({ elements }),
-  } as Response)
+  } as Response
 }
 
 describe('openStreetMapProvider', () => {
@@ -33,7 +33,7 @@ describe('openStreetMapProvider', () => {
         { type: 'node', id: 123, lat: 24.86, lon: 67.01, tags: { name: 'Karachi Accounting Ltd', office: 'accountant', website: 'https://example.com' } },
       ]))
 
-    const results = await openStreetMapProvider.search({ keyword: 'accounting', location: 'Karachi, Pakistan', limit: 5 })
+    const results = await openStreetMapProvider.search({ keyword: 'accounting', location: 'Test area one, Pakistan', limit: 5 })
 
     expect(results).toHaveLength(1)
     expect(results[0]).toMatchObject({
@@ -59,7 +59,7 @@ describe('openStreetMapProvider', () => {
         { type: 'way', id: 456, center: { lat: 24.87, lon: 67.02 }, tags: { name: 'No Site Accounting' } },
       ]))
 
-    const results = await openStreetMapProvider.search({ keyword: 'accountant', location: 'Karachi, Pakistan', limit: 5 })
+    const results = await openStreetMapProvider.search({ keyword: 'accountant', location: 'Test area two, Pakistan', limit: 5 })
 
     expect(results[0].websiteUrl).toBeNull()
     expect(results[0].phone).toBeNull()
@@ -70,7 +70,7 @@ describe('openStreetMapProvider', () => {
       .mockResolvedValueOnce(nominatimResponse(['24.7', '25.0', '66.8', '67.2']))
       .mockResolvedValueOnce(overpassResponse([]))
 
-    const results = await openStreetMapProvider.search({ keyword: 'accountant', location: 'Karachi, Pakistan', limit: 5 })
+    const results = await openStreetMapProvider.search({ keyword: 'accountant', location: 'Test area three, Pakistan', limit: 5 })
     expect(results).toEqual([])
   })
 
@@ -83,7 +83,7 @@ describe('openStreetMapProvider', () => {
         { type: 'node', id: 3, lat: 24.86, lon: 67.01, tags: { name: 'C' } },
       ]))
 
-    const results = await openStreetMapProvider.search({ keyword: 'accountant', location: 'Karachi, Pakistan', limit: 2 })
+    const results = await openStreetMapProvider.search({ keyword: 'accountant', location: 'Test area four, Pakistan', limit: 2 })
     expect(results).toHaveLength(2)
   })
 
@@ -92,7 +92,7 @@ describe('openStreetMapProvider', () => {
       .mockResolvedValueOnce(nominatimResponse(['24.7', '25.0', '66.8', '67.2']))
       .mockResolvedValueOnce({ ok: false, status: 429, json: () => Promise.resolve({}) } as Response)
 
-    await expect(openStreetMapProvider.search({ keyword: 'accountant', location: 'Karachi, Pakistan', limit: 5 })).rejects.toThrow('rate limit')
+    await expect(openStreetMapProvider.search({ keyword: 'accountant', location: 'Test area five, Pakistan', limit: 5 })).rejects.toThrow('rate limit')
   })
 
   it('throws on timeout via AbortError', async () => {
@@ -100,6 +100,6 @@ describe('openStreetMapProvider', () => {
       .mockResolvedValueOnce(nominatimResponse(['24.7', '25.0', '66.8', '67.2']))
       .mockRejectedValueOnce(Object.assign(new Error('aborted'), { name: 'AbortError' }))
 
-    await expect(openStreetMapProvider.search({ keyword: 'accountant', location: 'Karachi, Pakistan', limit: 5 })).rejects.toThrow('timed out')
+    await expect(openStreetMapProvider.search({ keyword: 'accountant', location: 'Test area six, Pakistan', limit: 5 })).rejects.toThrow('timed out')
   })
 })

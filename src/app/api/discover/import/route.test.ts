@@ -59,7 +59,7 @@ describe('POST /api/discover/import', () => {
     vi.mocked(createClient).mockReturnValue(mockClient({ existingKeys: ['test:p1'] }) as never)
 
     const res = await POST(makeRequest({
-      campaignId: 'campaign-1',
+      campaignId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
       results: [
         { providerId: 'p1', name: 'Existing', category: 'A', address: null, latitude: null, longitude: null, websiteUrl: null, phone: null, source: 'test', attribution: {} },
         { providerId: 'p2', name: 'New', category: 'A', address: null, latitude: null, longitude: null, websiteUrl: 'https://new.example', phone: null, source: 'test', attribution: {} },
@@ -74,14 +74,17 @@ describe('POST /api/discover/import', () => {
   it('rejects a campaign owned by another user', async () => {
     vi.mocked(createClient).mockReturnValue(mockClient({ campaignStatus: 'not_found' }) as never)
 
-    const res = await POST(makeRequest({ campaignId: 'campaign-1', results: [] }))
+    const res = await POST(makeRequest({
+      campaignId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      results: [{ providerId: 'p1', name: 'Example', category: null, address: null, latitude: null, longitude: null, websiteUrl: null, phone: null, source: 'test', attribution: {} }],
+    }))
     expect(res.status).toBe(404)
   })
 
   it('rejects empty imports', async () => {
     vi.mocked(createClient).mockReturnValue(mockClient() as never)
 
-    const res = await POST(makeRequest({ campaignId: 'campaign-1', results: [] }))
+    const res = await POST(makeRequest({ campaignId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', results: [] }))
     expect(res.status).toBe(400)
   })
 })

@@ -27,7 +27,7 @@ export async function buildBrief(input: BuildBriefInput): Promise<BuildBriefResu
   const [{ data: lead }, { data: profile }, { data: evidence }] = await Promise.all([
     supabase.from('leads').select('*').eq('id', input.leadId).eq('owner_id', user.id).single(),
     supabase.from('business_profiles').select('*').eq('owner_id', user.id).order('version', { ascending: false }).limit(1).single(),
-    supabase.from('lead_evidence').select('id, source_url, page_title, excerpt').eq('lead_id', input.leadId).eq('owner_id', user.id),
+    supabase.from('lead_evidence').select('id, source_url, page_title, excerpt').eq('lead_id', input.leadId).eq('owner_id', user.id).eq('access_status', 'ok'),
   ])
 
   if (!lead) return { success: false, error: 'Lead not found.' }

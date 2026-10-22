@@ -59,6 +59,33 @@ describe('generateBrief claim validation', () => {
     expect(result.error).toBeUndefined()
   })
 
+  it('accepts a brief with no claims when the profile fields are missing', async () => {
+    const missingProfile: ProfileFields = {
+      business_name: null,
+      services: null,
+      value_proposition: null,
+      target_industry: null,
+      target_geography: null,
+      constraints: null,
+    }
+    const briefWithoutClaims = { ...baseBrief, permitted_claims: [] }
+    vi.mocked(getModelClient).mockReturnValue(fakeClient([briefWithoutClaims]) as never)
+    const result = await generateBrief({ profile: missingProfile, evidence: [], objective: 'Qualify', strategy })
+    expect(result.brief).toEqual(briefWithoutClaims)
+  })
+
+  it('does not accept a placeholder value as a grounded provider claim', async () => {
+    const placeholderProfile = { ...profile, services: 'None provided' }
+    const placeholderClaim = {
+      ...baseBrief,
+      permitted_claims: [{ claim: 'None provided', source: 'provider_profile' as const, source_id: 'services' }],
+    }
+    vi.mocked(getModelClient).mockReturnValue(fakeClient([placeholderClaim, placeholderClaim]) as never)
+    const result = await generateBrief({ profile: placeholderProfile, evidence, objective: 'Qualify', strategy })
+    expect(result.brief).toBeNull()
+    expect(result.error).toContain('does not trace to a known profile field')
+  })
+
   it('rejects a provider claim that does not trace to a known profile field', async () => {
     const invalid = {
       ...baseBrief,

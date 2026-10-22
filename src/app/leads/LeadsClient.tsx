@@ -145,6 +145,8 @@ export function LeadsClient({ leads, campaigns, campaignId, error }: LeadsClient
         notify(data.message || 'Enrichment failed. Please try again.', 'error')
       } else if (data.skipped) {
         notify('Lead is already enriched for the current profile version.', 'success')
+      } else if (data.status === 'unverified') {
+        notify(data.message || 'No usable website evidence was available. The lead remains unverified.', 'error')
       } else {
         notify(data.status === 'verified' ? 'Lead enriched.' : 'Lead enrichment complete.', 'success')
       }
@@ -277,6 +279,42 @@ export function LeadsClient({ leads, campaigns, campaignId, error }: LeadsClient
     }
   }
 
+  async function handleAgentDiscover() {
+    if (!selectedCampaignId || !location.trim()) return
+    setDiscovering(true)
+    setDiscoverError(null)
+    setImportReport(null)
+    try {
+      const search = await fetch('/api/discover/agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignId: selectedCampaignId, location, limit: discoverLimit }),
+      })
+      const data = await search.json().catch(() => ({}))
+      if (!search.ok) throw new Error(data.message || 'Lead agent search failed.')
+      const results = (data.results ?? []) as DiscoveryResult[]
+      if (results.length === 0) {
+        setDiscoverResults([])
+        return
+      }
+      const imported = await fetch('/api/discover/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignId: selectedCampaignId, results }),
+      })
+      const report = await imported.json().catch(() => ({}))
+      if (!imported.ok) throw new Error(report.message || 'The agent found leads but could not import them.')
+      setImportReport(report)
+      setDiscoverResults(null)
+      notify(`Agent searched ${data.category} and imported ${report.imported} lead(s).`, 'success')
+      router.refresh()
+    } catch (cause) {
+      setDiscoverError(cause instanceof Error ? cause.message : 'Lead agent search failed.')
+    } finally {
+      setDiscovering(false)
+    }
+  }
+
   async function handleImportSelected() {
     if (!selectedCampaignId || !discoverResults || selectedResults.size === 0) return
     setImporting(true)
@@ -377,7 +415,7 @@ export function LeadsClient({ leads, campaigns, campaignId, error }: LeadsClient
         <CardHeader>
           <CardTitle>Discover businesses</CardTitle>
           <CardDescription>
-            Search OpenStreetMap for public businesses by keyword and location. Results depend on local tagging coverage; a business without a website can still be saved as an unverified lead.
+            Search OpenStreetMap for public businesses by keyword and location, or let the AI agent choose a supported category from your campaign and automatically import the results. OpenStreetMap data is free and coverage varies by location.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -431,6 +469,13 @@ export function LeadsClient({ leads, campaigns, campaignId, error }: LeadsClient
               disabled={discovering || !selectedCampaignId || !keyword.trim() || !location.trim()}
             >
               {discovering ? 'Searching…' : 'Search'}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => void handleAgentDiscover()}
+              disabled={discovering || importing || !selectedCampaignId || !location.trim()}
+            >
+              {discovering ? 'Agent is searching…' : 'Agent search & import'}
             </Button>
             {discoverResults && (
               <Button
