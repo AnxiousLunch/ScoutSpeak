@@ -58,7 +58,7 @@ function mockSupabase(sessionPurpose: string, messages: { sequence_number: numbe
 }
 
 const validInput = {
-  sessionId: 'session-1',
+  sessionId: '00000000-0000-4000-8000-000000000001',
   purpose: 'rehearsal',
   summary: 'Good',
   outcome_suggested: 'follow_up' as const,
@@ -79,7 +79,7 @@ describe('saveReview action', () => {
     vi.mocked(createClient).mockReturnValue(mockSupabase('prospect_conversation', []) as never)
     const result = await saveReview(validInput)
     expect(result.success).toBe(false)
-    expect(result.error).toContain('Purpose mismatch')
+    expect((result as { error?: string }).error).toContain('Purpose mismatch')
   })
 
   it('blocks excerpts that reference missing message sequence numbers', async () => {
@@ -89,7 +89,7 @@ describe('saveReview action', () => {
       excerpts: [{ point: 'X', message_seq: [99] }],
     })
     expect(result.success).toBe(false)
-    expect(result.error).toContain('supporting excerpt')
+    expect((result as { error?: string }).error).toContain('supporting excerpt')
   })
 
   it('saves a valid review', async () => {
