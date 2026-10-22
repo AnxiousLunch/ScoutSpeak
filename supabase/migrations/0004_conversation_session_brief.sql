@@ -20,7 +20,7 @@ returns trigger
 language plpgsql
 security invoker
 set search_path = public
-as $$
+as $
 begin
   if (old.session_status is distinct from 'created'
       or new.session_status is distinct from 'created')
@@ -29,4 +29,10 @@ begin
   end if;
   return new;
 end;
-$$;
+$;
+
+drop trigger if exists lock_session_purpose on public.conversation_sessions;
+create trigger lock_session_purpose
+  before update on public.conversation_sessions
+  for each row
+  execute function public.lock_session_purpose();

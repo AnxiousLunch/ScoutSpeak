@@ -12,7 +12,10 @@ export const runtime = 'nodejs'
 const InputMethodSchema = z.enum(['voice_browser', 'voice_hosted', 'typed'])
 
 const RequestSchema = z.discriminatedUnion('action', [
-  z.object({ action: z.literal('start') }),
+  z.object({
+    action: z.literal('start'),
+    inputMethod: InputMethodSchema.optional().default('typed'),
+  }),
   z.object({ action: z.literal('end') }),
   z.object({
     action: z.literal('turn'),

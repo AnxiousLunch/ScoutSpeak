@@ -13,7 +13,6 @@ type SessionRecord = {
   session_status: string
   session_purpose: string
   participant_consent_at: string | null
-  brief: unknown
 }
 type LeadRecord = { company_name: string; research_status: string }
 type CampaignRecord = { objective: string | null }
@@ -23,7 +22,7 @@ export default async function SessionPage({ params }: { params: { sessionId: str
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: rawSession } = await supabase.from('conversation_sessions').select('id, lead_id, campaign_id, business_profile_version, session_status, session_purpose, participant_consent_at, brief').eq('id', params.sessionId).eq('owner_id', user.id).single()
+  const { data: rawSession } = await supabase.from('conversation_sessions').select('id, lead_id, campaign_id, business_profile_version, session_status, session_purpose, participant_consent_at').eq('id', params.sessionId).eq('owner_id', user.id).single()
   const session = rawSession as unknown as SessionRecord | null
   if (!session || (session.session_purpose !== 'rehearsal' && session.session_purpose !== 'prospect_conversation')) notFound()
 
@@ -48,8 +47,8 @@ export default async function SessionPage({ params }: { params: { sessionId: str
         evidenceCount={evidence?.length || 0}
         campaignObjective={campaign.objective}
         sessionStatus={session.session_status}
+        sessionPurpose={session.session_purpose}
         participantConsentAt={session.participant_consent_at}
-        brief={session.brief}
         initialMessages={messages}
       />
     </div>

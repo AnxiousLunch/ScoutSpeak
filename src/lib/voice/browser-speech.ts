@@ -87,10 +87,13 @@ export function createBrowserSpeechRecognition(
   return recognition
 }
 
-export function speak(text: string): void {
+export function speak(text: string, opts?: { onEnd?: () => void }): void {
   if (typeof window === 'undefined') return
   const utterance = new SpeechSynthesisUtterance(text)
   utterance.lang = 'en-US'
+  if (opts?.onEnd) {
+    utterance.onend = opts.onEnd
+  }
   window.speechSynthesis.speak(utterance)
 }
 
