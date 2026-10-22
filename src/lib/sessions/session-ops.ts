@@ -98,3 +98,46 @@ export async function endSession(
   if (error) return fail(500, 'Could not save the end of this session. Try again.')
   return { ok: true, status: target }
 }
+
+export async function expireStaleSession(
+  client: DbClient,
+  session: Pick<SessionRow, 'id' | 'session_status'>
+): Promise<{ ok: true; status: SessionStatus } | Fail> {
+  const current = session.session_status as SessionStatus
+  if (current !== 'active') return { ok: true, status: current }
+
+  const { data: last } = await client
+    .from('conversation_messages')
+    .select('created_at')
+    .eq('session_id', session.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const lastAt = last?.created_at ? Date.parse(last.created_at) : NaN
+  if (Number.isNaN(lastAt)) return { ok: true, status: 'active' }
+
+  const staleThreshold = Date.now() - 10 * 60 * 1000
+  if (lastAt >= staleThreshold) return { ok: true, status: 'active' }
+
+  const { error } = await client
+    .from('conversation_sessions')
+    .update({ session_status: 'cancelled', end_reason: 'abandoned', ended_at: new Date().toISOString() })
+    .eq('id', session.id)
+
+  if (error) return fail(500, 'Could not expire stale session.')
+  return { ok: true, status: 'cancelled' }
+}
+
+export function formatEndReason(reason: string | null | undefined): string {
+  if (!reason) return ''
+  const labels: Record<string, string> = {
+    invite_expired: 'Invite expired',
+    abandoned: 'Abandoned',
+    audio_lost: 'Audio lost',
+    participant_left: 'Participant left',
+    owner_ended: 'Owner ended',
+    limit_or_stop_phrase: 'Limit or stop phrase',
+  }
+  return labels[reason] ?? reason.replaceAll('_', ' ')
+}

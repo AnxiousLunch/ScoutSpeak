@@ -23,6 +23,7 @@ export function JoinClient({ token }: { token: string }) {
   const base = `/api/join/${encodeURIComponent(token)}`
   const [data, setData] = useState<Payload | null>(null)
   const [fatal, setFatal] = useState<string | null>(null)
+  const [expired, setExpired] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [consent, setConsent] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -103,7 +104,10 @@ export function JoinClient({ token }: { token: string }) {
     mountedRef.current = true
     call('state')
       .then(setData)
-      .catch((e: Error) => setFatal(e.message))
+      .catch((e: Error & { status?: number }) => {
+        if (e.status === 410) setExpired(true)
+        else setFatal(e.message)
+      })
     return () => {
       mountedRef.current = false
       stopSpeaking()
@@ -159,6 +163,23 @@ export function JoinClient({ token }: { token: string }) {
     setData(await call('end', { method: 'POST' }))
   })
 
+  const reportAudioLost = () => run(async () => {
+    stopSpeaking(); stopRec(); setMicOn(false)
+    setData(await call('report', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: 'audio_lost' }),
+    }))
+  })
+
+  if (expired) {
+    return (
+      <div className="mx-auto max-w-md py-12 text-center space-y-4">
+        <h1 className="text-2xl font-bold">Link expired</h1>
+        <p className="text-sm text-muted-foreground">This conversation link has expired. The host can create a new link if the conversation is still needed.</p>
+      </div>
+    )
+  }
+
   if (fatal) {
     return <Alert variant="destructive"><AlertTitle>Link unavailable</AlertTitle><AlertDescription>{fatal}</AlertDescription></Alert>
   }
@@ -210,9 +231,12 @@ export function JoinClient({ token }: { token: string }) {
               <Button type="button" variant="outline" onClick={() => { setMuted((m) => !m); stopSpeaking() }} aria-label={muted ? 'Unmute AI voice' : 'Mute AI voice'}>{muted ? '🔇' : '🔊'}</Button>
             </form>
             {micError && (
-              <Alert variant="destructive"><AlertDescription className="flex items-center justify-between gap-3">
+              <Alert variant="destructive"><AlertDescription className="flex flex-wrap items-center justify-between gap-3">
                 <span>{micError}</span>
-                <Button type="button" size="sm" variant="outline" onClick={startMic} disabled={busy || micOn}>Retry microphone</Button>
+                <div className="flex gap-2">
+                  <Button type="button" size="sm" variant="outline" onClick={startMic} disabled={busy || micOn}>Retry microphone</Button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => void reportAudioLost()} disabled={busy}>Stop and report audio lost</Button>
+                </div>
               </AlertDescription></Alert>
             )}
             <Button variant="outline" size="sm" onClick={() => void leave()} disabled={busy}>Leave conversation</Button>

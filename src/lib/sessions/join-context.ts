@@ -28,7 +28,6 @@ export async function resolveInvite(token: string): Promise<JoinContext | NextRe
     .eq('token_hash', hashToken(token))
     .maybeSingle()
   if (!invite) return NextResponse.json({ message: 'This link is not valid.' }, { status: 404 })
-  if (isExpired(invite.expires_at)) return NextResponse.json({ message: 'This link has expired.' }, { status: 410 })
   const { data: session } = await client
     .from('conversation_sessions')
     .select('*')
@@ -36,6 +35,15 @@ export async function resolveInvite(token: string): Promise<JoinContext | NextRe
     .eq('session_purpose', 'prospect_conversation')
     .maybeSingle()
   if (!session) return NextResponse.json({ message: 'This link is not valid.' }, { status: 404 })
+  if (isExpired(invite.expires_at)) {
+    if (session.session_status === 'waiting_for_participant') {
+      await client
+        .from('conversation_sessions')
+        .update({ session_status: 'cancelled', end_reason: 'invite_expired', ended_at: new Date().toISOString() })
+        .eq('id', session.id)
+    }
+    return NextResponse.json({ message: 'This link has expired.' }, { status: 410 })
+  }
   return { client, session }
 }
 

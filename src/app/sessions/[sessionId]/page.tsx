@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
+import { expireStaleSession } from '@/lib/sessions/session-ops'
 import { SessionRoom, type SessionMessage } from './SessionRoom'
 import { ProspectHost } from './ProspectHost'
 
@@ -14,6 +15,7 @@ type SessionRecord = {
   session_status: string
   session_purpose: string
   participant_consent_at: string | null
+  end_reason: string | null
 }
 type LeadRecord = { company_name: string; research_status: string }
 type CampaignRecord = { objective: string | null }
@@ -24,8 +26,19 @@ export default async function SessionPage({ params }: { params: { sessionId: str
   if (!user) redirect('/login')
 
   const { data: rawSession } = await supabase.from('conversation_sessions').select('id, lead_id, campaign_id, business_profile_version, session_status, session_purpose, participant_consent_at').eq('id', params.sessionId).eq('owner_id', user.id).single()
-  const session = rawSession as unknown as SessionRecord | null
+  let session = rawSession as unknown as SessionRecord | null
   if (!session || (session.session_purpose !== 'rehearsal' && session.session_purpose !== 'prospect_conversation')) notFound()
+
+  const stale = await expireStaleSession(supabase, { id: session.id, session_status: session.session_status })
+  if (stale.ok && stale.status !== session.session_status) {
+    const { data: refreshed } = await supabase
+      .from('conversation_sessions')
+      .select('id, lead_id, campaign_id, business_profile_version, session_status, session_purpose, participant_consent_at, end_reason')
+      .eq('id', params.sessionId)
+      .eq('owner_id', user.id)
+      .single()
+    if (refreshed) session = refreshed as unknown as SessionRecord
+  }
 
   const [{ data: rawLead }, { data: rawCampaign }, { data: rawMessages }, { data: evidence }] = await Promise.all([
     supabase.from('leads').select('company_name, research_status').eq('id', session.lead_id).eq('owner_id', user.id).single(),
