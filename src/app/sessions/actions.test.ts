@@ -60,7 +60,7 @@ describe('updateSessionBrief', () => {
     vi.mocked(createClient).mockReturnValue(mockSupabase('waiting_for_participant') as never)
     const result = await updateSessionBrief('session-1', validBrief)
     expect(result.success).toBe(false)
-    expect(result.error).toContain('brief can only be edited before the session starts')
+    expect((result as { error?: string }).error).toContain('brief can only be edited before the session starts')
   })
 
   it('saves the brief while the session is still created', async () => {
@@ -73,6 +73,6 @@ describe('updateSessionBrief', () => {
     vi.mocked(createClient).mockReturnValue(mockSupabase(null) as never)
     const result = await updateSessionBrief('session-1', validBrief)
     expect(result.success).toBe(false)
-    expect(result.error).toContain('Session not found')
+    expect((result as { error?: string }).error).toContain('Session not found')
   })
 })

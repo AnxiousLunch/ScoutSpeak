@@ -57,7 +57,7 @@ describe('enrichLead', () => {
     expect(out.status).toBe('partial')
     expect(out.result).toEqual(expect.objectContaining({ observed_signal: baseResult.observed_signal }))
     expect(out.fit).not.toBeNull()
-    expect(out.fit?.label).toBe('strong')
+    expect(out.fit?.label).toBe('possible')
   })
 
   it('rejects an invented tag and accepts a repaired response', async () => {
