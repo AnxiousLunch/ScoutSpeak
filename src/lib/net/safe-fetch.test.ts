@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { lookup } from 'dns/promises'
-import { request } from 'undici'
-import { safeFetchPage, FetchBlockedError } from './safe-fetch'
+import { request, Agent } from 'undici'
+import { safeFetchPage } from './safe-fetch'
+import { FetchBlockedError } from './errors'
 
 vi.mock('dns/promises', () => ({ lookup: vi.fn() }))
 vi.mock('undici', async (importOriginal) => {
@@ -30,7 +31,7 @@ function mockResponse(opts: {
     statusCode: opts.statusCode,
     headers: opts.headers ?? {},
     body: opts.body ?? mockBody(['<html></html>']),
-  } as Awaited<ReturnType<typeof request>>)
+  } as unknown as Awaited<ReturnType<typeof request>>)
 }
 
 beforeEach(() => {
@@ -39,7 +40,7 @@ beforeEach(() => {
 
 describe('safeFetchPage', () => {
   it('fetches a valid public page', async () => {
-    mockedLookup.mockResolvedValue([{ address: '93.184.216.34', family: 4 }])
+    mockedLookup.mockResolvedValue([{ address: '93.184.216.34', family: 4 }] as never)
     mockedRequest.mockReturnValue(
       mockResponse({
         statusCode: 200,
@@ -68,14 +69,14 @@ describe('safeFetchPage', () => {
     ['fe80::1', 'IPv6 link-local'],
     ['::ffff:192.168.1.1', 'IPv4-mapped private'],
   ])('blocks %s (%s)', async (ip) => {
-    mockedLookup.mockResolvedValue([{ address: ip, family: ip.includes(':') ? 6 : 4 }])
+    mockedLookup.mockResolvedValue([{ address: ip, family: ip.includes(':') ? 6 : 4 }] as never)
     await expect(safeFetchPage('https://example.com/')).rejects.toBeInstanceOf(FetchBlockedError)
   })
 
   it('blocks redirects that resolve to a private address', async () => {
     mockedLookup.mockImplementation(async (hostname) => {
-      if (hostname === 'example.com') return [{ address: '93.184.216.34', family: 4 }]
-      return [{ address: '192.168.1.1', family: 4 }]
+      if (hostname === 'example.com') return [{ address: '93.184.216.34', family: 4 }] as never
+      return [{ address: '192.168.1.1', family: 4 }] as never
     })
 
     mockedRequest.mockReturnValueOnce(
@@ -91,7 +92,7 @@ describe('safeFetchPage', () => {
   })
 
   it('blocks non-HTML responses', async () => {
-    mockedLookup.mockResolvedValue([{ address: '93.184.216.34', family: 4 }])
+    mockedLookup.mockResolvedValue([{ address: '93.184.216.34', family: 4 }] as never)
     mockedRequest.mockReturnValue(
       mockResponse({
         statusCode: 200,
@@ -105,7 +106,7 @@ describe('safeFetchPage', () => {
   })
 
   it('blocks responses larger than 1 MB', async () => {
-    mockedLookup.mockResolvedValue([{ address: '93.184.216.34', family: 4 }])
+    mockedLookup.mockResolvedValue([{ address: '93.184.216.34', family: 4 }] as never)
     mockedRequest.mockReturnValue(
       mockResponse({
         statusCode: 200,
