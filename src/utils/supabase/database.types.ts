@@ -137,6 +137,7 @@ export type Database = {
           campaign_id: string
           created_at: string
           ended_at: string | null
+          end_reason: string | null
           id: string
           input_method: string | null
           lead_id: string
@@ -160,6 +161,7 @@ export type Database = {
           campaign_id: string
           created_at?: string
           ended_at?: string | null
+          end_reason?: string | null
           id?: string
           input_method?: string | null
           lead_id: string
@@ -183,6 +185,7 @@ export type Database = {
           campaign_id?: string
           created_at?: string
           ended_at?: string | null
+          end_reason?: string | null
           id?: string
           input_method?: string | null
           lead_id?: string

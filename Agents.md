@@ -21,8 +21,9 @@ Build window: 19 Oct 9:00 AM PKT to 22 Oct 11:00 PM PKT. Spec: `SPEC.md`. Tasks:
 
 ## 2. Hard rules (never violate; if a task seems to require it, STOP and escalate)
 
-1. Every user-owned table has `owner_id` and RLS. The service-role key never reaches the
-   browser or the repo.
+1. Every user-owned table has `owner_id` and RLS. The service-role key is allowed ONLY in
+   `src/lib/supabase/admin.ts`, used ONLY by `src/app/api/join/**`; never in client code,
+   the repo or logs.
 2. All protected routes and actions require the second-factor (AAL2) session.
 3. Session link tokens: random, stored hashed, expiring, scoped to ONE session, never expose
    `owner_id` or any other record.

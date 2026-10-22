@@ -154,6 +154,17 @@ The existing counter migration is not modified.
 
 `/leads` shows research status, fit score, and fit label, with per-row **Enrich** / **Re-enrich** buttons. `/leads/[id]` displays the evidence panel, source-backed claims with clickable citation chips, and the fit breakdown.
 
+## Prospect invite links
+
+Migration `0005_end_reason.sql` adds `conversation_sessions.end_reason` (run after 0004).
+
+- Owner: for `prospect_conversation` sessions the room has **Create link** (`POST /api/sessions/[id]/invite`). Only the sha256 hash of a 32-byte random token is stored in `session_invites` (24h expiry); the full URL is shown once. A read-only transcript polls `GET /api/sessions/[id]/messages` every 3s.
+- Prospect: `/join/[token]` (public) shows the AI/transcript notice, consent checkbox, Start, live transcript, mic + typed input, spoken replies and Leave.
+- `/api/join/[token]/{state,consent,start,turn,end}` use the service-role client in `src/lib/supabase/admin.ts` (the only place the key is allowed), reject expired tokens with 410, touch only the invite's session, and return only `{status, messages, businessName}`.
+- `src/lib/sessions/run-turn.ts` is the shared turn logic used by the owner turn route and the join turn route.
+
+Set `SUPABASE_SERVICE_ROLE_KEY` in the server environment (Secrets panel); never expose it to the browser.
+
 ## Conversation strategies
 
 Versioned strategy configs live in `src/lib/strategies/` and are selected when starting a session:

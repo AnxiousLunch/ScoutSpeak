@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { SessionRoom, type SessionMessage } from './SessionRoom'
+import { ProspectHost } from './ProspectHost'
 
 export const dynamic = 'force-dynamic'
 
@@ -40,6 +41,14 @@ export default async function SessionPage({ params }: { params: { sessionId: str
   return (
     <div className="session-page">
       <Link href="/leads" className="session-breadcrumb">← Back to leads</Link>
+      {session.session_purpose === 'prospect_conversation' ? (
+        <ProspectHost
+          sessionId={session.id}
+          leadName={lead.company_name}
+          sessionStatus={session.session_status}
+          initialMessages={messages}
+        />
+      ) : (
       <SessionRoom
         sessionId={session.id}
         leadName={lead.company_name}
@@ -51,6 +60,7 @@ export default async function SessionPage({ params }: { params: { sessionId: str
         participantConsentAt={session.participant_consent_at}
         initialMessages={messages}
       />
+      )}
     </div>
   )
 }

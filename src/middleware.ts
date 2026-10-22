@@ -51,6 +51,9 @@ export async function middleware(request: NextRequest) {
   const isApi = pathname.startsWith('/api/')
   const isStatic =
     pathname.startsWith('/_next/') || pathname.startsWith('/favicon')
+  const isPublicJoin =
+    pathname.startsWith('/join/') || pathname.startsWith('/api/join/')
+  if (isPublicJoin) return response
   const isPublicPage = PUBLIC_PAGES.includes(pathname) || isStatic
 
   if (!session) {
