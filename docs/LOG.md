@@ -8,3 +8,5 @@
 | Voice Session Package Core | K2.7 Coder | done | Created packages/voicesession with status machine, controller, summary, events, outcome, logger, store interface and tests. No new app routes or migrations. Verification commands not run in this interface.
 
 | Core Setup and Lead Enrichment Skeleton | K2.7 Coder | done | Safe IP-pinned fetch, HTML extraction, evidence storage, prospectkit orchestration, POST /api/leads/[id]/enrich, and leads UI. Fixed enrich.ts to propagate infrastructure AiError and route to map 429/504/502.
+
+| T-50 Stage E | K2.7 Coder | done | Consent route, turn-route consent gate, role-lock prompt builder, voice/mute/mic toggles, input_method persistence, length truncation. Tests added. Verification commands not run in this interface.

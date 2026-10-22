@@ -5,7 +5,16 @@ import { SessionRoom, type SessionMessage } from './SessionRoom'
 
 export const dynamic = 'force-dynamic'
 
-type SessionRecord = { id: string; lead_id: string; campaign_id: string; business_profile_version: number | null; session_status: string; session_purpose: string }
+type SessionRecord = {
+  id: string
+  lead_id: string
+  campaign_id: string
+  business_profile_version: number | null
+  session_status: string
+  session_purpose: string
+  participant_consent_at: string | null
+  brief: unknown
+}
 type LeadRecord = { company_name: string; research_status: string }
 type CampaignRecord = { objective: string | null }
 
@@ -14,7 +23,7 @@ export default async function SessionPage({ params }: { params: { sessionId: str
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: rawSession } = await supabase.from('conversation_sessions').select('id, lead_id, campaign_id, business_profile_version, session_status, session_purpose').eq('id', params.sessionId).eq('owner_id', user.id).single()
+  const { data: rawSession } = await supabase.from('conversation_sessions').select('id, lead_id, campaign_id, business_profile_version, session_status, session_purpose, participant_consent_at, brief').eq('id', params.sessionId).eq('owner_id', user.id).single()
   const session = rawSession as unknown as SessionRecord | null
   if (!session || (session.session_purpose !== 'rehearsal' && session.session_purpose !== 'prospect_conversation')) notFound()
 
@@ -29,5 +38,20 @@ export default async function SessionPage({ params }: { params: { sessionId: str
   const messages = (rawMessages || []) as unknown as SessionMessage[]
   if (!lead || !campaign) notFound()
 
-  return <div className="session-page"><Link href="/leads" className="session-breadcrumb">← Back to leads</Link><SessionRoom sessionId={session.id} leadName={lead.company_name} leadStatus={lead.research_status} evidenceCount={evidence?.length || 0} campaignObjective={campaign.objective} sessionStatus={session.session_status} initialMessages={messages} /></div>
+  return (
+    <div className="session-page">
+      <Link href="/leads" className="session-breadcrumb">← Back to leads</Link>
+      <SessionRoom
+        sessionId={session.id}
+        leadName={lead.company_name}
+        leadStatus={lead.research_status}
+        evidenceCount={evidence?.length || 0}
+        campaignObjective={campaign.objective}
+        sessionStatus={session.session_status}
+        participantConsentAt={session.participant_consent_at}
+        brief={session.brief}
+        initialMessages={messages}
+      />
+    </div>
+  )
 }
