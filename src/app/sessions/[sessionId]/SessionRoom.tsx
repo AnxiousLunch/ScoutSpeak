@@ -7,7 +7,18 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { speak, stopSpeaking, isBrowserSpeechSupported, createBrowserSpeechRecognition, type SpeechRecognitionType } from '@/lib/voice/browser-speech'
+import {
+  isMediaRecorderSupported,
+  pickMimeType,
+  startRecording,
+  speakServer,
+  stopServerSpeech,
+  isServerSpeechPlaying,
+  isSpeechError,
+  createSpeechError,
+  type RecordingHandle,
+  type SpeechErrorCode,
+} from '@/lib/voice/server-speech'
 
 export interface SessionMessage {
   sequence_number: number
@@ -55,10 +66,11 @@ export function SessionRoom({
   const [micError, setMicError] = useState<string | null>(null)
   const [micSupported, setMicSupported] = useState(true)
   const ended = status === 'completed' || status === 'cancelled' || status === 'failed'
-  const recognitionRef = useRef<SpeechRecognitionType | null>(null)
   const micOnRef = useRef(micOn)
   const endedRef = useRef(ended)
   const mountedRef = useRef(true)
+  const micBusyRef = useRef(false)
+  const mediaRef = useRef<RecordingHandle | null>(null)
 
   useEffect(() => {
     micOnRef.current = micOn
@@ -77,32 +89,23 @@ export function SessionRoom({
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      setMicSupported(isBrowserSpeechSupported())
+      setMicSupported(isMediaRecorderSupported())
     }
   }, [])
 
   useEffect(() => {
     return () => {
-      stopSpeaking()
-      stopRecognition()
+      mediaRef.current?.cancel()
+      stopServerSpeech()
     }
   }, [])
 
   useEffect(() => {
     if (ended) {
-      stopRecognition()
-      stopSpeaking()
+      mediaRef.current?.cancel()
+      stopServerSpeech()
     }
   }, [ended])
-
-  function stopRecognition() {
-    try {
-      recognitionRef.current?.stop()
-    } catch {
-      // ignore
-    }
-    recognitionRef.current = null
-  }
 
   async function recordConsent() {
     const response = await fetch(`/api/sessions/${sessionId}/consent`, { method: 'POST' })
@@ -137,17 +140,54 @@ export function SessionRoom({
 
   function speakMessage(textToSpeak: string) {
     if (!muted && textToSpeak && typeof window !== 'undefined') {
-      stopRecognition()
-      speak(textToSpeak, {
+      mediaRef.current?.cancel()
+      void speakServer(sessionId, textToSpeak, {
         onEnd: () => {
           if (mountedRef.current && micOnRef.current && !endedRef.current) {
-            startMic()
+            void startMic()
           }
         },
-      })
+        onError: (err) => {
+          setMicError(formatSpeechError(err.code))
+        },
+      }).catch(() => { /* error already handled in onError */ })
     } else if (micOn && !ended) {
-      startMic()
+      void startMic()
     }
+  }
+
+  function formatSpeechError(code: SpeechErrorCode): string {
+    switch (code) {
+      case 'rate_limit':
+        return 'Voice is temporarily rate-limited. Type your reply or retry in a moment.'
+      case 'timeout':
+        return 'Transcription timed out. Try a shorter reply.'
+      case 'upstream':
+        return 'Voice service is unavailable right now. Typed input still works.'
+      case 'network':
+        return "Couldn't reach the server. Check your connection and retry."
+      case 'permission':
+        return 'Microphone access was denied. Check browser permissions.'
+      case 'empty':
+        return 'No speech detected — try again.'
+      default:
+        return 'Voice input encountered an error. Typed input is always available.'
+    }
+  }
+
+  function playMessage(textToSpeak: string) {
+    setMuted(false)
+    mediaRef.current?.cancel()
+    void speakServer(sessionId, textToSpeak, {
+      onEnd: () => {
+        if (mountedRef.current && micOnRef.current && !endedRef.current) {
+          void startMic()
+        }
+      },
+      onError: () => {
+        setMicError('Speech playback is not available. You can still read the transcript.')
+      },
+    }).catch(() => { /* error already handled in onError */ })
   }
 
   async function start() {
@@ -156,7 +196,8 @@ export function SessionRoom({
       if (!consentAt) {
         throw new Error('Please confirm the AI disclosure and transcript notice before starting.')
       }
-      const result = await request({ action: 'start', inputMethod: 'typed' })
+      const inputMethod = 'typed'
+      const result = await request({ action: 'start', inputMethod })
       const opening = result.message && typeof result.message !== 'string' ? result.message as SessionMessage : null
       if (opening) {
         setMessages((current) => current.some((item) => item.sequence_number === opening.sequence_number) ? current : [...current, opening])
@@ -169,7 +210,7 @@ export function SessionRoom({
 
   async function send(submittedText: string, inputMethod: 'voice_browser' | 'typed') {
     if (!submittedText || busy) return
-    setBusy(true); setError(null); stopRecognition()
+    setBusy(true); setError(null); mediaRef.current?.cancel(); stopServerSpeech()
     setText('')
     try {
       const result = await request({ action: 'turn', text: submittedText, inputMethod })
@@ -193,70 +234,80 @@ export function SessionRoom({
     void send(submitted, 'typed')
   }
 
-  function startMic() {
-    if (!isBrowserSpeechSupported()) {
-      setMicSupported(false)
-      setMicError('Speech recognition is not supported in this browser. Typed input is always available.')
-      return
-    }
+  async function startMic() {
+    if (micBusyRef.current) return
+    micBusyRef.current = true
     setMicError(null)
     try {
-      const recognition = createBrowserSpeechRecognition({
-        onPartial: (partial) => {
-          setText((current) => {
-            const base = current.replace(/\.\.\.$/, '').trim()
-            return base ? `${base} ${partial}…` : `${partial}…`
-          })
-        },
-        onFinal: (final) => {
-          setText((current) => {
-            const base = current.replace(/\.\.\.$/, '').trim()
-            const next = base ? `${base} ${final}` : final
-            void send(next, 'voice_browser')
-            return next
-          })
-        },
-        onError: (err) => {
-          if (err === 'not-allowed' || err === 'service-not-allowed') {
-            setMicError('Microphone access was denied. Check browser permissions and try again.')
-          } else if (err === 'no-speech') {
-            setMicError('No speech was detected. Try speaking closer to the mic.')
-          } else if (err === 'audio-capture') {
-            setMicError('No microphone found. Typed input is always available.')
-          } else {
-            setMicError(`Speech recognition error: ${err}. Try again.`)
-          }
-          setMicOn(false)
-        },
-        onEnd: () => {
-          // Recognition has stopped; the toggle button will reflect the state.
-          // If the mic was on, it is restarted after the AI finishes speaking.
-        },
-      })
-      recognitionRef.current = recognition
-      recognition.start()
+      if (typeof window === 'undefined' || !isMediaRecorderSupported()) {
+        setMicSupported(false)
+        setMicError('Recording is not supported in this browser.')
+        return
+      }
+      const mime = pickMimeType()
+      if (!mime) {
+        setMicError('No supported audio format in this browser.')
+        return
+      }
+      const handle = await startRecording({ maxDurationMs: 60000, mimeType: mime })
+      mediaRef.current = handle
       setMicOn(true)
-    } catch (cause) {
-      setMicError(cause instanceof Error ? cause.message : 'Could not start speech recognition.')
+      const blob = await handle.stop()
+      mediaRef.current = null
       setMicOn(false)
+      if (!mountedRef.current || endedRef.current) return
+      if (blob.size < 1000) {
+        setMicError('That was too short — try again.')
+        return
+      }
+      setBusy(true)
+      const extension = mime.includes('mp4') ? 'm4a' : mime.includes('ogg') ? 'ogg' : 'webm'
+      const fd = new FormData()
+      fd.append('audio', blob, `recording.${extension}`)
+      const res = await fetch(`/api/sessions/${sessionId}/transcribe`, {
+        method: 'POST',
+        body: fd,
+      })
+      const data = (await res.json().catch(() => ({}))) as { error?: string; text?: string }
+      if (!res.ok) {
+        const code: SpeechErrorCode = res.status === 429 ? 'rate_limit' : 'upstream'
+        throw createSpeechError(code, data.error ?? 'Transcription failed.')
+      }
+      const text = (data.text ?? '').trim()
+      if (!text) {
+        setMicError('No speech detected — try again.')
+        return
+      }
+      await send(text, 'voice_browser')
+    } catch (e) {
+      if (isSpeechError(e)) {
+        setMicError(formatSpeechError(e.code))
+      } else {
+        setMicError(e instanceof Error ? e.message : 'Could not record audio.')
+      }
+    } finally {
+      micBusyRef.current = false
+      if (mountedRef.current) setBusy(false)
     }
   }
 
   function toggleMic() {
     if (micOn) {
-      stopRecognition()
+      mediaRef.current?.cancel()
+      mediaRef.current = null
       setMicOn(false)
       setMicError(null)
     } else {
-      if (typeof window !== 'undefined' && window.speechSynthesis.speaking) {
-        return
-      }
-      startMic()
+      if (isServerSpeechPlaying()) return
+      void startMic()
     }
   }
 
   async function end() {
-    setBusy(true); setError(null); stopRecognition(); stopSpeaking()
+    setBusy(true); setError(null)
+    mediaRef.current?.cancel()
+    mediaRef.current = null
+    stopServerSpeech()
     try {
       const result = await request({ action: 'end' })
       setStatus(result.status ?? 'completed')
@@ -276,7 +327,7 @@ export function SessionRoom({
         <CardContent>
           <div className="transcript" aria-live="polite" aria-label="Conversation transcript">
             {messages.length === 0 && status === 'created' && <div className="transcript-empty"><span>◌</span><b>Your transcript will appear here</b><small>Start the conversation to see the AI’s opening, then reply as the prospect.</small></div>}
-            {messages.map((message) => <div key={message.sequence_number} className={`transcript-message ${message.speaker_role === 'agent' ? 'agent-message' : 'human-message'}`}><span>{message.speaker_role === 'agent' ? 'AI REPRESENTATIVE' : 'YOU · PROSPECT'}</span><p>{message.message_text}</p></div>)}
+            {messages.map((message) => <div key={message.sequence_number} className={`transcript-message ${message.speaker_role === 'agent' ? 'agent-message' : 'human-message'}`}><span>{message.speaker_role === 'agent' ? 'AI REPRESENTATIVE' : 'YOU · PROSPECT'}</span><p>{message.message_text}</p>{message.speaker_role === 'agent' && message.message_text && <Button type="button" size="sm" variant="outline" onClick={() => playMessage(message.message_text!)}>▶ Play aloud</Button>}</div>)}
             {busy && status === 'active' && <div className="reply-wait"><span className="typing-dots">•••</span> ScoutSpeak is preparing a grounded reply…</div>}
           </div>
           {error && <Alert variant="destructive" className="mt-4"><AlertTitle>Couldn’t complete that step</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
@@ -320,7 +371,7 @@ export function SessionRoom({
               <form className="reply-form" onSubmit={handleSubmit}>
                 <Input value={text} onChange={(event) => setText(event.target.value)} placeholder="Reply as the prospect…" maxLength={500} disabled={busy} aria-label="Your reply as the prospect"/>
                 <Button type="submit" disabled={busy || !text.trim()}>{busy ? 'Waiting…' : 'Send reply'}</Button>
-                <Button type="button" variant="outline" onClick={toggleMic} disabled={busy || !micSupported || (typeof window !== 'undefined' && window.speechSynthesis.speaking)} aria-label={micOn ? 'Turn microphone off' : 'Turn microphone on'}>
+                <Button type="button" variant="outline" onClick={toggleMic} disabled={busy || !micSupported || isServerSpeechPlaying()} aria-label={micOn ? 'Turn microphone off' : 'Turn microphone on'}>
                   {micOn ? '🎙️ On' : '🎤 Off'}
                 </Button>
                 <Button type="button" variant="outline" onClick={() => setMuted((m) => !m)} aria-label={muted ? 'Unmute AI voice' : 'Mute AI voice'}>
