@@ -78,6 +78,9 @@ function statusVariant(status: string): 'default' | 'secondary' | 'destructive' 
     case 'error':
     case 'blocked':
     case 'non_html':
+    case 'not_found':
+    case 'rate_limit':
+    case 'server_error':
       return 'destructive'
     default:
       return 'outline'

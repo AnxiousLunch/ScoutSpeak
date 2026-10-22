@@ -7,6 +7,10 @@ export type FetchBlockedCode =
   | 'timeout'
   | 'oversize'
   | 'non_html'
+  | 'not_found'
+  | 'blocked'
+  | 'rate_limit'
+  | 'server_error'
   | 'fetch_error'
 
 export class FetchBlockedError extends Error {

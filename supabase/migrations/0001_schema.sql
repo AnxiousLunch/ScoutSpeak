@@ -61,6 +61,11 @@ create table if not exists public.leads (
   score_breakdown jsonb default '{}'::jsonb,
   research_status text not null default 'unverified',
   lead_status text,
+  provider_id text,
+  discovery_source text,
+  source_attribution jsonb default '{}'::jsonb,
+  discovery_query jsonb default '{}'::jsonb,
+  dedup_key text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -70,6 +75,7 @@ alter table public.leads add constraint leads_research_status_check
 
 create index if not exists idx_leads_owner_id on public.leads(owner_id);
 create index if not exists idx_leads_campaign_id on public.leads(campaign_id);
+create index if not exists idx_leads_dedup_key on public.leads(owner_id, campaign_id, dedup_key);
 
 -- ---------------------------------------------------------------------------
 -- lead_evidence

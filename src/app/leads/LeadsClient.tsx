@@ -51,6 +51,11 @@ import {
   type LeadActionResult,
 } from './actions'
 
+interface CampaignOption {
+  id: string
+  name: string
+}
+
 interface Lead {
   id: string
   company_name: string
@@ -60,10 +65,25 @@ interface Lead {
   fit_score: number | null
   fit_label: string | null
   enriched_at: string | null
+  discovery_source: string | null
+}
+
+interface DiscoveryResult {
+  providerId: string | null
+  name: string
+  category: string | null
+  address: string | null
+  latitude: number | null
+  longitude: number | null
+  websiteUrl: string | null
+  phone: string | null
+  source: string
+  attribution: Record<string, unknown>
 }
 
 interface LeadsClientProps {
   leads: Lead[]
+  campaigns: CampaignOption[]
   campaignId: string | null
   error?: string
 }
@@ -87,7 +107,7 @@ const statusOptions = [
   })),
 ]
 
-export function LeadsClient({ leads, campaignId, error }: LeadsClientProps) {
+export function LeadsClient({ leads, campaigns, campaignId, error }: LeadsClientProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [manualOpen, setManualOpen] = useState(false)
@@ -101,6 +121,16 @@ export function LeadsClient({ leads, campaignId, error }: LeadsClientProps) {
   const [csvReport, setCsvReport] = useState<ReturnType<typeof buildImportReport> | null>(null)
   const [csvImporting, setCsvImporting] = useState(false)
   const [enrichingId, setEnrichingId] = useState<string | null>(null)
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string>(campaignId ?? '')
+  const [keyword, setKeyword] = useState('')
+  const [location, setLocation] = useState('')
+  const [discoverLimit, setDiscoverLimit] = useState(10)
+  const [discovering, setDiscovering] = useState(false)
+  const [discoverResults, setDiscoverResults] = useState<DiscoveryResult[] | null>(null)
+  const [discoverError, setDiscoverError] = useState<string | null>(null)
+  const [selectedResults, setSelectedResults] = useState<Set<number>>(new Set())
+  const [importing, setImporting] = useState(false)
+  const [importReport, setImportReport] = useState<{ found: number; imported: number; skipped: number; rejected: number } | null>(null)
 
   async function handleEnrich(leadId: string, force = false) {
     setEnrichingId(leadId)
@@ -224,6 +254,62 @@ export function LeadsClient({ leads, campaignId, error }: LeadsClientProps) {
     router.push(`/leads/${leadId}`)
   }
 
+  async function handleDiscover() {
+    if (!selectedCampaignId) return
+    setDiscovering(true)
+    setDiscoverError(null)
+    setDiscoverResults(null)
+    setSelectedResults(new Set())
+    setImportReport(null)
+    try {
+      const res = await fetch('/api/discover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignId: selectedCampaignId, keyword, location, limit: discoverLimit }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.message || 'Discovery search failed.')
+      setDiscoverResults(data.results ?? [])
+    } catch (cause) {
+      setDiscoverError(cause instanceof Error ? cause.message : 'Discovery search failed.')
+    } finally {
+      setDiscovering(false)
+    }
+  }
+
+  async function handleImportSelected() {
+    if (!selectedCampaignId || !discoverResults || selectedResults.size === 0) return
+    setImporting(true)
+    setImportReport(null)
+    try {
+      const toImport = discoverResults.filter((_, index) => selectedResults.has(index))
+      const res = await fetch('/api/discover/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignId: selectedCampaignId, results: toImport }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.message || 'Import failed.')
+      setImportReport(data)
+      setDiscoverResults(null)
+      setSelectedResults(new Set())
+      router.refresh()
+    } catch (cause) {
+      setDiscoverError(cause instanceof Error ? cause.message : 'Import failed.')
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  function toggleResult(index: number) {
+    setSelectedResults((prev) => {
+      const next = new Set(prev)
+      if (next.has(index)) next.delete(index)
+      else next.add(index)
+      return next
+    })
+  }
+
   async function handleCsvFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     setCsvFile(file ?? null)
@@ -286,6 +372,121 @@ export function LeadsClient({ leads, campaignId, error }: LeadsClientProps) {
     <div className="space-y-4">
       <div className="guided-page-heading"><p className="eyebrow">STEP 3 · BUILD YOUR PROSPECT LIST</p><h1>Leads</h1><p>Add companies you may want to work with. Public website pages provide context for later research; ScoutSpeak marks missing evidence clearly rather than filling gaps with guesses.</p></div>
       <div className="lead-status-guide"><span className="guide-mark">i</span><p><strong>Reading the table:</strong> Research shows whether there’s enough source evidence; lead status is your own follow-up tracking. A fit score helps prioritize attention, it does not predict a sale.</p></div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Discover businesses</CardTitle>
+          <CardDescription>
+            Search OpenStreetMap for public businesses by keyword and location. Results depend on local tagging coverage; a business without a website can still be saved as an unverified lead.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-4">
+            <div className="space-y-2 md:col-span-1">
+              <Label htmlFor="campaign-select">Campaign</Label>
+              <Select
+                id="campaign-select"
+                value={selectedCampaignId}
+                options={campaigns.map((c) => ({ value: c.id, label: c.name }))}
+                onChange={(value) => setSelectedCampaignId(value)}
+                disabled={campaigns.length === 0}
+              />
+            </div>
+            <div className="space-y-2 md:col-span-1">
+              <Label htmlFor="keyword">Business type</Label>
+              <Input
+                id="keyword"
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+                placeholder="e.g. accounting firms"
+                disabled={discovering}
+              />
+            </div>
+            <div className="space-y-2 md:col-span-1">
+              <Label htmlFor="location">Location</Label>
+              <Input
+                id="location"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="e.g. Karachi, Pakistan"
+                disabled={discovering}
+              />
+            </div>
+            <div className="space-y-2 md:col-span-1">
+              <Label htmlFor="limit">Max results</Label>
+              <Input
+                id="limit"
+                type="number"
+                min={1}
+                max={25}
+                value={discoverLimit}
+                onChange={(e) => setDiscoverLimit(Math.max(1, Math.min(25, Number(e.target.value) || 1)))}
+                disabled={discovering}
+              />
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              onClick={() => void handleDiscover()}
+              disabled={discovering || !selectedCampaignId || !keyword.trim() || !location.trim()}
+            >
+              {discovering ? 'Searching…' : 'Search'}
+            </Button>
+            {discoverResults && (
+              <Button
+                variant="outline"
+                onClick={() => void handleImportSelected()}
+                disabled={importing || selectedResults.size === 0}
+              >
+                {importing ? 'Importing…' : `Import selected (${selectedResults.size})`}
+              </Button>
+            )}
+          </div>
+          {discoverError && (
+            <Alert variant="destructive">
+              <AlertTitle>Discovery failed</AlertTitle>
+              <AlertDescription>{discoverError}</AlertDescription>
+            </Alert>
+          )}
+          {importReport && (
+            <Alert>
+              <AlertTitle>Import complete</AlertTitle>
+              <AlertDescription>
+                Found {importReport.found}, imported {importReport.imported}, skipped {importReport.skipped}, rejected {importReport.rejected}.
+              </AlertDescription>
+            </Alert>
+          )}
+          {discoverResults && discoverResults.length === 0 && !discoverError && (
+            <p className="text-sm text-muted-foreground">No businesses found. Try a broader or better-known business category/location, or add leads manually.</p>
+          )}
+          {discoverResults && discoverResults.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">Select the results you want to import. Attribution: OpenStreetMap contributors.</p>
+              {discoverResults.map((result, index) => (
+                <div key={index} className="flex items-start gap-3 rounded-md border p-3 text-sm">
+                  <input
+                    type="checkbox"
+                    className="mt-1 h-4 w-4"
+                    checked={selectedResults.has(index)}
+                    onChange={() => toggleResult(index)}
+                    aria-label={`Select ${result.name}`}
+                  />
+                  <div className="flex-1">
+                    <p className="font-medium">{result.name}</p>
+                    <p className="text-muted-foreground">{result.category ?? 'Business'}{result.address ? ` · ${result.address}` : ''}</p>
+                    {result.websiteUrl && (
+                      <a href={result.websiteUrl} target="_blank" rel="noreferrer" className="text-primary underline-offset-4 hover:underline">
+                        {result.websiteUrl}
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm text-muted-foreground">
@@ -442,6 +643,9 @@ export function LeadsClient({ leads, campaignId, error }: LeadsClientProps) {
                     <Link href={`/leads/${lead.id}`} className="hover:underline">
                       {lead.company_name}
                     </Link>
+                    {lead.discovery_source && (
+                      <span className="ml-2 text-xs text-muted-foreground">({lead.discovery_source})</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     {lead.website_url ? (

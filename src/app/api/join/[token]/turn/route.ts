@@ -14,6 +14,10 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
   const ctx = await resolveInvite(params.token)
   if (isResponse(ctx)) return ctx
 
+  if (!ctx.session.participant_consent_at) {
+    return NextResponse.json({ message: 'Consent is required.', error: 'consent_required' }, { status: 409 })
+  }
+
   const body = Body.safeParse(await req.json().catch(() => null))
   if (!body.success) {
     return NextResponse.json({ message: body.error.errors[0]?.message || 'Invalid request.' }, { status: 400 })

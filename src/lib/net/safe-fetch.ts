@@ -160,6 +160,23 @@ export async function safeFetchPage(url: string): Promise<FetchedPage> {
       continue
     }
 
+    if (status >= 400) {
+      response.body?.resume?.()
+      if (status === 404) {
+        throw new FetchBlockedError('not_found', `HTTP ${status}`)
+      }
+      if (status === 403) {
+        throw new FetchBlockedError('blocked', `HTTP ${status}`)
+      }
+      if (status === 429) {
+        throw new FetchBlockedError('rate_limit', `HTTP ${status}`)
+      }
+      if (status >= 500) {
+        throw new FetchBlockedError('server_error', `HTTP ${status}`)
+      }
+      throw new FetchBlockedError('fetch_error', `HTTP ${status}`)
+    }
+
     const allowedType =
       rawContentType.includes('text/html') || rawContentType.includes('application/xhtml+xml')
     if (!allowedType) {

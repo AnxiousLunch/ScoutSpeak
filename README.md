@@ -144,13 +144,21 @@ The core ScoutSpeak schema lives in migration files (run them in order):
 
 The existing counter migration is not modified.
 
+## Lead discovery
+
+The Leads page includes live business discovery powered by OpenStreetMap Overpass and Nominatim. Enter a business type/keyword, location, and result limit; results are normalized, deduplicated, and imported into the selected campaign. A business without a website is still saved as an unverified lead and is never enriched using an invented URL.
+
+- `src/lib/discovery/` — provider interface and OpenStreetMap adapter.
+- `POST /api/discover` — authenticated, AAL2-protected search.
+- `POST /api/discover/import` — imports selected results with campaign-ownership checks and deduplication.
+
 ## Lead enrichment
 
 `packages/prospectkit/` holds the pure enrichment logic (schema, prompt, citation validation, fit scoring, and orchestration) with its own unit tests.
 
-`src/lib/net/safe-fetch.ts` fetches public pages with IP pinning, redirect re-validation, and blocklists. `src/lib/net/extract.ts` converts HTML to an excerpt.
+`src/lib/net/safe-fetch.ts` fetches public pages with IP pinning, redirect re-validation, and blocklists. `src/lib/net/extract.ts` converts HTML to an excerpt. Non-2xx HTTP responses are classified before their bodies are treated as evidence.
 
-`POST /api/leads/[id]/enrich` fetches the lead URL plus up to two same-origin pages, stores `lead_evidence` rows, runs the model through `prospectkit`, and updates the lead. It maps `AiError` codes to HTTP 429/504/502 and never fabricates a successful result.
+`POST /api/leads/[id]/enrich` fetches the lead URL plus up to two same-origin pages, stores `lead_evidence` rows with stable IDs, runs the model through `prospectkit`, and updates the lead. Citation IDs point to the exact stored evidence rows. It maps `AiError` codes to HTTP 429/504/502 and never fabricates a successful result.
 
 `/leads` shows research status, fit score, and fit label, with per-row **Enrich** / **Re-enrich** buttons. `/leads/[id]` displays the evidence panel, source-backed claims with clickable citation chips, and the fit breakdown.
 
@@ -181,7 +189,7 @@ Use `getStrategy(key)` to look up a config by key and version. Unit tests cover 
 
 `src/lib/voice/browser-speech.ts` implements recognition and speech-synthesis using the browser Web Speech API, with a typed fallback.
 
-`src/lib/voice/managed-room.ts` is a stub that throws `not implemented` until a provider-backed room is chosen.
+`src/lib/voice/managed-room.ts` exposes `getManagedRoomAdapter()`, a configurable factory for a provider-backed room. Set `VOICE_PROVIDER` and matching credentials to plug in a real adapter; without them the adapter returns a clear "not configured" error. Browser speech and typed input continue to work independently.
 
 `POST /api/voice/turn` is AAL2-protected and validated with Zod. It accepts the last six turns plus a user message (max 500 characters) and calls `getModelClient().generateText`. The system prompt requires the agent to identify itself as an AI, keep replies to 1-2 short sentences, and invent no facts about the prospect or services. `AiError` codes are mapped to HTTP status codes; no canned text is returned.
 

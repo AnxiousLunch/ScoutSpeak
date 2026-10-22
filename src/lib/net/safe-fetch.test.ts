@@ -119,4 +119,25 @@ describe('safeFetchPage', () => {
       code: 'oversize',
     })
   })
+
+  it.each([
+    [403, 'blocked'],
+    [404, 'not_found'],
+    [429, 'rate_limit'],
+    [500, 'server_error'],
+    [503, 'server_error'],
+  ])('classifies HTTP %i as %s before using the body', async (status, expectedCode) => {
+    mockedLookup.mockResolvedValue([{ address: '93.184.216.34', family: 4 }] as never)
+    mockedRequest.mockReturnValue(
+      mockResponse({
+        statusCode: status,
+        headers: { 'content-type': 'text/html; charset=utf-8' },
+        body: mockBody(['<html><body>error page</body></html>']),
+      })
+    )
+
+    await expect(safeFetchPage('https://example.com/')).rejects.toMatchObject({
+      code: expectedCode,
+    })
+  })
 })

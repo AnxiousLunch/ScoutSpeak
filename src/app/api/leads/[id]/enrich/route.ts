@@ -37,9 +37,12 @@ function aiStatus(code: AiError['code']): number {
   }
 }
 
-function pageStatusFromError(error: unknown): 'blocked' | 'error' | 'non_html' {
+function pageStatusFromError(error: unknown): 'blocked' | 'error' | 'non_html' | 'not_found' | 'rate_limit' | 'server_error' {
   if (error instanceof FetchBlockedError) {
     if (error.code === 'non_html') return 'non_html'
+    if (error.code === 'not_found') return 'not_found'
+    if (error.code === 'rate_limit') return 'rate_limit'
+    if (error.code === 'server_error') return 'server_error'
     return 'blocked'
   }
   return 'error'
@@ -190,6 +193,7 @@ export async function POST(
   }
 
   const evidenceInserts = evidenceRows.map((row) => ({
+    id: row.id,
     owner_id: user.id,
     lead_id: lead.id,
     run_id: runId,

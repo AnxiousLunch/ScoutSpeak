@@ -14,12 +14,11 @@ export default async function LeadsPage() {
     await Promise.all([
       supabase
         .from('campaigns')
-        .select('id')
-        .order('created_at', { ascending: false })
-        .limit(1),
+        .select('id, name')
+        .order('created_at', { ascending: false }),
       supabase
         .from('leads')
-        .select('id, company_name, website_url, research_status, lead_status, fit_score, fit_label, enriched_at')
+        .select('id, company_name, website_url, research_status, lead_status, fit_score, fit_label, enriched_at, discovery_source')
         .order('created_at', { ascending: false }),
     ])
 
@@ -27,6 +26,7 @@ export default async function LeadsPage() {
     return (
       <LeadsClient
         leads={[]}
+        campaigns={[]}
         campaignId={null}
         error={campaignsError?.message || leadsError?.message}
       />
@@ -35,7 +35,8 @@ export default async function LeadsPage() {
 
   return (
     <LeadsClient
-      leads={leads ?? []}
+      leads={(leads ?? []) as unknown as React.ComponentProps<typeof LeadsClient>['leads']}
+      campaigns={campaigns ?? []}
       campaignId={campaigns?.[0]?.id ?? null}
     />
   )

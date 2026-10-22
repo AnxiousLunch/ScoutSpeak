@@ -295,6 +295,9 @@ export type Database = {
           company_name: string
           company_summary: string | null
           created_at: string
+          dedup_key: string | null
+          discovery_query: Json | null
+          discovery_source: string | null
           enriched_at: string | null
           enrichment_error: string | null
           fit_label: string | null
@@ -307,8 +310,10 @@ export type Database = {
           observed_signal: string | null
           owner_id: string
           personalization_hook: string | null
+          provider_id: string | null
           research_status: string
           score_breakdown: Json | null
+          source_attribution: Json | null
           updated_at: string
           website_url: string | null
         }
@@ -318,6 +323,9 @@ export type Database = {
           company_name: string
           company_summary?: string | null
           created_at?: string
+          dedup_key?: string | null
+          discovery_query?: Json | null
+          discovery_source?: string | null
           enriched_at?: string | null
           enrichment_error?: string | null
           fit_label?: string | null
@@ -330,8 +338,10 @@ export type Database = {
           observed_signal?: string | null
           owner_id?: string
           personalization_hook?: string | null
+          provider_id?: string | null
           research_status?: string
           score_breakdown?: Json | null
+          source_attribution?: Json | null
           updated_at?: string
           website_url?: string | null
         }
@@ -341,6 +351,9 @@ export type Database = {
           company_name?: string
           company_summary?: string | null
           created_at?: string
+          dedup_key?: string | null
+          discovery_query?: Json | null
+          discovery_source?: string | null
           enriched_at?: string | null
           enrichment_error?: string | null
           fit_label?: string | null
@@ -353,8 +366,10 @@ export type Database = {
           observed_signal?: string | null
           owner_id?: string
           personalization_hook?: string | null
+          provider_id?: string | null
           research_status?: string
           score_breakdown?: Json | null
+          source_attribution?: Json | null
           updated_at?: string
           website_url?: string | null
         }
